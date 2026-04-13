@@ -45,9 +45,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_cors_list = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+if not _cors_list:
+    _cors_list = ["http://localhost:5173", "http://127.0.0.1:5173"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_cors_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -89,3 +92,10 @@ def gecc_implementation_guide_pdf():
 
 # مجلد رفع الأدلة
 _BACKEND_ROOT.joinpath("uploads").mkdir(parents=True, exist_ok=True)
+
+# واجهة React المُجمَّعة (npm run build → نسخ dist إلى static/web) — للنشر كموقع واحد
+_SPA_DIR = _BACKEND_ROOT / "static" / "web"
+if _SPA_DIR.is_dir():
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/", StaticFiles(directory=str(_SPA_DIR), html=True), name="spa")

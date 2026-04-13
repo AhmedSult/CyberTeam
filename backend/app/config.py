@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     )
 
     database_url: str = "sqlite:///./cyber_compliance.db"
+    # للإنتاج: أضف نطاق موقعك مفصولاً بفاصلة، مثل: https://app.onrender.com,https://www.example.com
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     secret_key: str = "change-me-in-production-use-openssl-rand-hex-32"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24
