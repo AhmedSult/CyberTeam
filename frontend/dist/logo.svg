@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 72" role="img" aria-labelledby="logoTitle">
+  <title id="logoTitle">درع سيبراني</title>
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f4fffb"/>
+      <stop offset="45%" stop-color="#b8efd9"/>
+      <stop offset="100%" stop-color="#4aba8c"/>
+    </linearGradient>
+  </defs>
+  <!-- درع كلاسيكي -->
+  <path
+    fill="url(#shieldGrad)"
+    stroke="rgba(255,255,255,0.65)"
+    stroke-width="1.15"
+    d="M32 6 L52 17 L52 41.5 C52 52.2 43 61.5 32 66.5 C21 61.5 12 52.2 12 41.5 L12 17 L32 6Z"
+  />
+  <!-- قفل / حماية -->
+  <path
+    fill="none"
+    stroke="#003d28"
+    stroke-width="2.4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    d="M26 33.5 V27 C26 21.5 28.8 17.5 32 17.5 C35.2 17.5 38 21.5 38 27 V33.5"
+  />
+  <rect x="23.5" y="33" width="17" height="13" rx="2.2" fill="#003d28"/>
+  <circle cx="32" cy="39.5" r="2" fill="#b8efd9"/>
+  <!-- نقاط شبكة -->
+  <circle cx="18" cy="26" r="2" fill="#003d28" opacity="0.55"/>
+  <circle cx="46" cy="26" r="2" fill="#003d28" opacity="0.55"/>
+  <path stroke="#003d28" stroke-width="1" stroke-opacity="0.35" fill="none" d="M18 26 L26 22 M46 26 L38 22 M32 17.5 L32 14"/>
+</svg>

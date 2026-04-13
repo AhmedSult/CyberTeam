@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -10,12 +10,15 @@ from app.schemas import (
     AIChatResponse,
     ExplainFrameworkRequest,
     ExplainFrameworkResponse,
+    FileAnalysisResponse,
     GapAnalysisRequest,
     GapAnalysisResponse,
 )
 from app.services import ai_service as ai
 
 router = APIRouter(prefix="/ai", tags=["ai"])
+
+_MAX_ANALYZE_BYTES = 8 * 1024 * 1024
 
 
 @router.post("/chat", response_model=AIChatResponse)
@@ -60,3 +63,18 @@ async def gap(
         db, body.department_id, body.framework_id, control_ids=body.control_ids
     )
     return GapAnalysisResponse(gaps_summary=summary, prioritized_controls=ids, used_llm=used)
+
+
+@router.post("/analyze-file", response_model=FileAnalysisResponse)
+async def analyze_file(
+    file: UploadFile = File(...),
+    focus: str = Form(""),
+    _: User = Depends(get_current_user),
+):
+    """تحليل ملف PDF/Excel/CSV: استخراج نص + مقتطفات ECC (RAG) + OpenAI مع حدود المجال."""
+    raw = await file.read()
+    if len(raw) > _MAX_ANALYZE_BYTES:
+        raise HTTPException(status_code=413, detail="حجم الملف يتجاوز 8 ميجابايت")
+    name = file.filename or "upload"
+    analysis, used, n = await ai.ai_analyze_uploaded_file(raw, name, focus.strip() or None)
+    return FileAnalysisResponse(analysis=analysis, used_llm=used, extracted_chars=n)

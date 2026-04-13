@@ -123,6 +123,9 @@ class DashboardStats(BaseModel):
     not_started: int
     not_applicable: int
     compliance_rate: float
+    gap_open_count: int = Field(
+        description="عدد السجلات بحالة «جزئي» أو «لم يبدأ» (فجوات مفتوحة تقريبية).",
+    )
 
 
 class AIChatRequest(BaseModel):
@@ -178,6 +181,12 @@ class ExplainFrameworkResponse(BaseModel):
     explanation: str
     used_llm: bool
     official_ecc_pdf_url: str
+
+
+class FileAnalysisResponse(BaseModel):
+    analysis: str
+    used_llm: bool
+    extracted_chars: int
 
 
 class ControlMappingOut(BaseModel):

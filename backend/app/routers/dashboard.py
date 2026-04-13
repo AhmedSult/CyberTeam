@@ -23,6 +23,7 @@ def stats(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     not_applicable = int(by_status.get(ComplianceStatusEnum.not_applicable, 0))
     denom = total_records or 1
     rate = round(100.0 * compliant / denom, 1)
+    gap_open_count = int(partial + not_started)
     return DashboardStats(
         total_controls=total_controls,
         compliant=compliant,
@@ -30,4 +31,5 @@ def stats(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
         not_started=not_started,
         not_applicable=not_applicable,
         compliance_rate=rate,
+        gap_open_count=gap_open_count,
     )

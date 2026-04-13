@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   api,
+  downloadCompliancePdf,
   type ComplianceRecord,
   type Control,
-  type CurrentUser,
   type DashboardStats,
   type Department,
   type Framework,
 } from "../api";
+import { PLATFORM_NAME_AR, PLATFORM_SHORT_DESC_AR } from "../brand";
 import { AssistantChatPanel } from "../components/AssistantChatPanel";
 import { Spinner } from "../components/Spinner";
 
@@ -125,6 +126,8 @@ type Props = {
   runGap: (opts?: { control_ids?: number[] }) => void | Promise<void>;
   /** يُستدعى عند تغيير بحث/تصفية الجدول لإبطال ملخص فجوات قديم */
   onComplianceTableFilterChange?: () => void;
+  /** فتح نافذة إعدادات ترميز الإدارات */
+  onOpenCodificationSettings: () => void;
   patchingRecordId: number | null;
   records: ComplianceRecord[];
   controlById: Map<number, Control>;
@@ -135,7 +138,6 @@ type Props = {
   chatLog: { role: "user" | "ai"; text: string }[];
   sendChat: () => void | Promise<void>;
   chatSending: boolean;
-  currentUser: CurrentUser | null;
 };
 
 export function HomePage({
@@ -153,6 +155,7 @@ export function HomePage({
   gap,
   runGap,
   onComplianceTableFilterChange,
+  onOpenCodificationSettings,
   records,
   controlById,
   deptById,
@@ -163,7 +166,6 @@ export function HomePage({
   chatLog,
   sendChat,
   chatSending,
-  currentUser,
 }: Props) {
   const [explainOpen, setExplainOpen] = useState(false);
   const [explainLoading, setExplainLoading] = useState(false);
@@ -188,11 +190,13 @@ export function HomePage({
     filterStandardTitle,
     filterDomain,
   });
-  const [deptFormErr, setDeptFormErr] = useState<string | null>(null);
-  const [deptSubmitting, setDeptSubmitting] = useState(false);
-  const [newDeptCode, setNewDeptCode] = useState("");
-  const [newDeptNameAr, setNewDeptNameAr] = useState("");
-  const [newDeptNameEn, setNewDeptNameEn] = useState("");
+
+  const [analyzeLoading, setAnalyzeLoading] = useState(false);
+  const [analyzeText, setAnalyzeText] = useState<string | null>(null);
+  const [analyzeErr, setAnalyzeErr] = useState<string | null>(null);
+  const [analyzeFocus, setAnalyzeFocus] = useState("");
+  const [pdfExportErr, setPdfExportErr] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedFw = typeof fw === "number" ? frameworks.find((f) => f.id === fw) : undefined;
 
@@ -329,41 +333,60 @@ export function HomePage({
     setControlDetailModal(null);
   }
 
-  async function submitNewDepartment(e: React.FormEvent) {
-    e.preventDefault();
-    if (currentUser?.role !== "admin") return;
-    const na = newDeptNameAr.trim();
-    const ne = newDeptNameEn.trim();
-    if (!na || !ne) {
-      setDeptFormErr("أدخل الاسم بالعربية والإنجليزية.");
+  async function runFileAnalyze() {
+    const f = fileInputRef.current?.files?.[0];
+    if (!f) {
+      setAnalyzeErr("اختر ملفاً أولاً (PDF أو Excel أو CSV).");
       return;
     }
-    setDeptFormErr(null);
-    setDeptSubmitting(true);
+    setAnalyzeErr(null);
+    setAnalyzeLoading(true);
+    setAnalyzeText(null);
     try {
-      const code = newDeptCode.trim() || null;
-      await api.createDepartment({
-        name_ar: na,
-        name_en: ne,
-        code: code || undefined,
-      });
-      setNewDeptCode("");
-      setNewDeptNameAr("");
-      setNewDeptNameEn("");
-      await loadData();
-    } catch (err) {
-      setDeptFormErr(err instanceof Error ? err.message : String(err));
+      const r = await api.analyzeFile(f, analyzeFocus.trim() || undefined);
+      setAnalyzeText(
+        r.analysis +
+          (r.extracted_chars > 0
+            ? `\n\n— (${r.extracted_chars.toLocaleString("ar-SA")} حرفاً مستخرجة من الملف)`
+            : "")
+      );
+    } catch (e) {
+      setAnalyzeErr(e instanceof Error ? e.message : String(e));
     } finally {
-      setDeptSubmitting(false);
+      setAnalyzeLoading(false);
+    }
+  }
+
+  async function exportCompliancePdf() {
+    setPdfExportErr(null);
+    try {
+      const blob = await downloadCompliancePdf({
+        department_id: typeof deptFilter === "number" ? deptFilter : undefined,
+        framework_id: typeof fw === "number" ? fw : undefined,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `compliance-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setPdfExportErr(e instanceof Error ? e.message : String(e));
     }
   }
 
   return (
-    <div className="page-shell" dir="rtl">
+    <div className="page-shell page-shell--enter" dir="rtl">
       {err && <div className="page-banner page-banner--error">{err}</div>}
 
       <section className="home-hero-strip">
-        <h1 className="home-hero-heading">مرحباً بك في لوحة التحكم</h1>
+        <div className="home-hero-brand">
+          <img src="/logo.svg" alt="" className="home-hero-logo" width={52} height={59} decoding="async" />
+          <div>
+            <h1 className="home-hero-heading">مرحباً بك في {PLATFORM_NAME_AR}</h1>
+            <p className="home-hero-tagline">{PLATFORM_SHORT_DESC_AR}</p>
+          </div>
+        </div>
         <p className="home-hero-text">
           راقب مؤشرات الامتثال، صفِّ الضوابط حسب الإطار والإدارة، وشغّل تحليل الفجوات. للأسئلة التفصيلية عن الضوابط
           والأدلة استخدم <strong>المساعد الذكي</strong> من القائمة العلوية أو من قسم الدردشة أسفل الصفحة.
@@ -375,7 +398,75 @@ export function HomePage({
         <Stat title="ممتثل" value={stats?.compliant ?? "—"} accent="var(--success)" />
         <Stat title="جزئي" value={stats?.partial ?? "—"} accent="var(--warn)" />
         <Stat title="لم يبدأ" value={stats?.not_started ?? "—"} accent="var(--danger)" />
+        <Stat
+          title="فجوات مفتوحة (جزئي + لم يبدأ)"
+          value={stats?.gap_open_count ?? "—"}
+          accent="var(--danger)"
+        />
         <Stat title="مؤشر الامتثال (تقريبي)" value={stats ? `${stats.compliance_rate}%` : "—"} />
+      </section>
+
+      <section className="home-ai-tools" aria-labelledby="home-ai-tools-heading">
+        <h2 id="home-ai-tools-heading" className="home-ai-tools-title">
+          {PLATFORM_NAME_AR} — تحليل ملفات وتقرير PDF
+        </h2>
+        <p className="home-ai-tools-lead">
+          <strong>OpenAI + RAG (ECC)</strong> مع <strong>حدود المجال</strong> — رفع وثيقة أو جدول للتحليل، أو تنزيل
+          تقرير امتثال حسب فلتر الإطار والإدارة الحالي.
+        </p>
+        <div className="home-ai-tools-grid">
+          <div className="card-elevated home-ai-tool-card">
+            <h3 className="home-ai-tool-card-title">تحليل ملف (PDF / Excel / CSV)</h3>
+            <p className="home-ai-tool-card-text">
+              يُستخرج النص من الملف، تُسترجع مقتطفات ذات صلة من وثيقة ECC المفهرسة، ثم يُلخّص النموذج الرد مع احترام
+              حدود المجال.
+            </p>
+            <label className="field-label">
+              الملف
+              <input
+                ref={fileInputRef}
+                className="field-input"
+                type="file"
+                accept=".pdf,.xlsx,.xls,.csv"
+                disabled={analyzeLoading}
+              />
+            </label>
+            <label className="field-label">
+              تركيز اختياري (مثلاً: الربط بمجال الحوكمة)
+              <input
+                className="field-input"
+                value={analyzeFocus}
+                onChange={(e) => setAnalyzeFocus(e.target.value)}
+                placeholder="اتركه فارغاً لتحليل عام"
+                disabled={analyzeLoading}
+              />
+            </label>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={analyzeLoading}
+              onClick={() => void runFileAnalyze()}
+            >
+              {analyzeLoading ? "جاري التحليل…" : "تشغيل التحليل"}
+            </button>
+            {analyzeErr && <p className="home-ai-tool-err">{analyzeErr}</p>}
+            {analyzeText && (
+              <pre className="home-ai-tool-pre" dir="rtl">
+                {analyzeText}
+              </pre>
+            )}
+          </div>
+          <div className="card-elevated home-ai-tool-card">
+            <h3 className="home-ai-tool-card-title">تقرير امتثال PDF</h3>
+            <p className="home-ai-tool-card-text">
+              تقرير عربي يتضمن إحصائيات النطاق الحالي (فلتر الإطار والإدارة) وقائمة بضوابط تحتاج متابعة.
+            </p>
+            <button type="button" className="btn-primary" onClick={() => void exportCompliancePdf()}>
+              تنزيل تقرير PDF
+            </button>
+            {pdfExportErr && <p className="home-ai-tool-err">{pdfExportErr}</p>}
+          </div>
+        </div>
       </section>
 
       <div className="app-layout-row home-layout">
@@ -432,49 +523,17 @@ export function HomePage({
               ))}
             </select>
           </label>
-          {currentUser?.role === "admin" && (
-            <form className="dept-create-form card-elevated" onSubmit={(e) => void submitNewDepartment(e)}>
-              <h3 className="panel-heading" style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>
-                إضافة إدارة (ترميز)
-              </h3>
-              <label className="field-label">
-                الترميز (اختياري)
-                <input
-                  className="field-input"
-                  placeholder="مثل: HR أو SOC"
-                  value={newDeptCode}
-                  disabled={deptSubmitting}
-                  onChange={(e) => setNewDeptCode(e.target.value.toUpperCase())}
-                  autoComplete="off"
-                />
-              </label>
-              <label className="field-label">
-                الاسم بالعربية
-                <input
-                  className="field-input"
-                  value={newDeptNameAr}
-                  disabled={deptSubmitting}
-                  onChange={(e) => setNewDeptNameAr(e.target.value)}
-                  required
-                />
-              </label>
-              <label className="field-label">
-                الاسم بالإنجليزية
-                <input
-                  className="field-input"
-                  value={newDeptNameEn}
-                  disabled={deptSubmitting}
-                  onChange={(e) => setNewDeptNameEn(e.target.value)}
-                  required
-                />
-              </label>
-              {deptFormErr && <p className="framework-explain-hint" style={{ color: "var(--danger)" }}>{deptFormErr}</p>}
-              <button type="submit" className="btn-secondary btn-block btn-with-spinner" disabled={deptSubmitting}>
-                {deptSubmitting && <Spinner tone="muted" />}
-                {deptSubmitting ? "جاري الحفظ…" : "حفظ الإدارة"}
-              </button>
-            </form>
-          )}
+          <button
+            type="button"
+            className="btn-dept-codification"
+            onClick={onOpenCodificationSettings}
+            title="فتح إعدادات ترميز الإدارات وإضافة وحدات جديدة"
+          >
+            <span className="btn-dept-codification-icon" aria-hidden>
+              ⚙
+            </span>
+            إعدادات ترميز الإدارات
+          </button>
           <button type="button" className="btn-secondary btn-block btn-with-spinner" onClick={() => void loadData()} disabled={loading}>
             {loading && <Spinner tone="muted" />}
             {loading ? "جاري تحديث البيانات…" : "تحديث البيانات"}

@@ -1,6 +1,7 @@
 """AI layer: uses OpenAI when configured, else deterministic rules (متوافق مع المقترح)."""
 
 import asyncio
+import io
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -23,6 +24,16 @@ PLATFORM_GPT_LOGIC_AR = (
     "استخدمها لشرح متطلبات ECC والربط مع وضع المستخدم عندما ينطبق ذلك."
 )
 
+# رفض مواضيع خارج نطاق المنصة (لا يستبدل مراجعة أمنية أو قراراً رسمياً)
+AI_SCOPE_GUARDRAILS_AR = (
+    "【حدود المجال والرفض】 ناقش فقط: الامتثال، الضوابط والأمن السيبراني، الأدلة، بيانات المنصة، "
+    "وسياسات وإجراءات أمن المعلومات **ضمن سياق الامتثال**، وإرشادات تطبيقية مرتبطة بذلك. "
+    "لا تخض في: **الحديث أو الآراء السياسية**، أو **الأمور الشخصية** (صحة، علاقات، حياة خاصة)، "
+    "أو مواضيع ترفيهية أو أي طلب لا صلة له بهذه المنصة. "
+    "عند سؤال أو طلب من هذا النوع: **اعتذر بجملة قصيرة مهنية**، و**لا تُقدّم** محتوى ذلك الموضوع، "
+    "و**وجّه المستخدم بلطف** لطرح سؤال يتعلق بالضوابط أو الامتثال أو استخدام المشروع."
+)
+
 NCA_FOCUS_SYSTEM_AR = (
     "أنت مساعد امتثال وضوابط سيبرانية داخل تطبيق لإدارة الامتثال. "
     "افترض دائماً أن أسئلة المستخدم تخص **الضوابط والممارسات والجاهزية السيبرانية في المملكة العربية السعودية** "
@@ -33,7 +44,7 @@ NCA_FOCUS_SYSTEM_AR = (
     "إن وُجد سياق ضابط محدد في الرسالة فاستخدمه. "
     "لا تدّعِ أنك تمثّل الهيئة أو تصدر لها قرارات؛ إن طُلبت وثيقة رسمية فأحِل المستخدم إلى الموقع الرسمي nca.gov.sa. "
     "لا تخترع أرقام ضوابط أو نصوص رسمية؛ إن لم تكن متأكداً فذكّر بمراجعة الوثائق المعتمدة."
-)
+) + AI_SCOPE_GUARDRAILS_AR
 
 NCA_GAP_SYSTEM_AR = (
     "أنت مستشار امتثال سيبراني لمدير في منظمة سعودية. "
@@ -42,7 +53,7 @@ NCA_GAP_SYSTEM_AR = (
     f"{PLATFORM_GPT_LOGIC_AR} "
     "عند تلخيص الفجوات اعتمد على **مراجع الضوابط والبيانات المرفقة** من المنصة ومقتطفات ECC إن وُجدت. "
     "أجب بالعربية الفصحى المبسطة. لا تدّعِ صفة رسمية عن الهيئة."
-)
+) + AI_SCOPE_GUARDRAILS_AR
 
 # يحسّن «الرؤية» دون الحاجة لتغيير النموذج — يُفعّل بـ AI_STRUCTURED_INSIGHTS=true
 CHAT_INSIGHT_FORMAT_AR = """
@@ -368,7 +379,7 @@ EXPLAIN_FRAMEWORK_SYSTEM_AR = (
     "أنت تشرح أطر الامتثال والضوابط السيبرانية بالعربية لمستخدمي منصة داخلية في المملكة العربية السعودية. "
     "كن واضحاً ومنطقياً. لا تدّعِ أنك تمثّل الهيئة الوطنية للأمن السيبراني. "
     "إذا وُجدت مقتطفات من وثيقة ECC فهي مستخرجة آلياً من PDF رسمي — نبّه لاحتمال نقص التنسيق أو الأخطاء."
-)
+) + AI_SCOPE_GUARDRAILS_AR
 
 
 async def explain_framework(db: Session, framework_id: int) -> tuple[str, bool]:
@@ -454,6 +465,97 @@ async def explain_framework(db: Session, framework_id: int) -> tuple[str, bool]:
         return (r.choices[0].message.content or "").strip(), True
     except Exception as e:
         return f"تعذر توليد الشرح: {e}", False
+
+
+FILE_ANALYZE_SYSTEM_AR = (
+    "أنت محلل وثائق ضمن منصة امتثال وضوابط سيبرانية في المملكة. "
+    "ستتلقى نصاً مستخرجاً من ملف قد يكون سياسة داخلية، سجل أدلة، جدول ضوابط، أو وثيقة تقنية.\n"
+    "المطلوب: (1) لخص بإيجاز ما يتعلق بالامتثال والأمن السيبراني. (2) اذكر فجوات أو نواقص ظاهرة في النص إن وجدت. "
+    "(3) اربط عند الإمكان بمتطلبات الضوابط الأساسية ECC والممارسات الوطنية (NCA) باستخدام **المقتطفات المرجعية المرفقة فقط** كدعم — لا تفتعل متطلبات غير مذكورة هناك.\n"
+    "(4) إن كان الملف لا يخص الامتثال أو الأمن السيبراني، صرّح بذلك ووجّه المستخدم لاستخدام المنصة لتتبع الضوابط.\n"
+    "أجب بالعربية الفصحى المبسطة. لا تدّعِ تمثيل الهيئة."
+) + AI_SCOPE_GUARDRAILS_AR
+
+
+def _spreadsheet_bytes_to_text(raw: bytes, name_lower: str) -> str:
+    import pandas as pd
+
+    if name_lower.endswith(".csv"):
+        df = pd.read_csv(io.BytesIO(raw))
+    else:
+        df = pd.read_excel(io.BytesIO(raw), sheet_name=0)
+    parts: list[str] = []
+    for _, row in df.head(250).iterrows():
+        vals = [str(x).strip() for x in row.tolist() if pd.notna(x) and str(x).strip()]
+        if vals:
+            parts.append(" | ".join(vals))
+    return "\n".join(parts)
+
+
+async def ai_analyze_uploaded_file(
+    file_bytes: bytes,
+    filename: str,
+    focus: str | None = None,
+) -> tuple[str, bool, int]:
+    """تحليل ملف PDF/Excel/CSV: استخراج نص + RAG من ECC + OpenAI + Guardrails."""
+    from app.services.ecc_kb import extract_plain_text_from_pdf_bytes
+
+    name = (filename or "").lower()
+    text = ""
+    if name.endswith(".pdf"):
+        text = await asyncio.to_thread(extract_plain_text_from_pdf_bytes, file_bytes, 48000)
+        if not text.strip():
+            return "تعذر استخراج نص واضح من ملف PDF (قد يكون ممسوحاً ضوئياً دون طبقة نص).", False, 0
+    elif name.endswith((".xlsx", ".xls", ".csv")):
+        try:
+            text = await asyncio.to_thread(_spreadsheet_bytes_to_text, file_bytes, name)
+        except Exception as e:
+            return f"تعذر قراءة الجدول: {e}", False, 0
+    else:
+        return "يُدعم تحليل ملفات PDF و Excel (xlsx/xls) و CSV فقط.", False, 0
+
+    if not text.strip():
+        return "الملف فارغ أو لا يحتوي بيانات قابلة للقراءة.", False, 0
+
+    n = len(text)
+    ecc_excerpts = ""
+    if settings.ecc_kb_enabled:
+        fq = f"{(focus or '').strip()} {text[:2000]} ECC NCA امتثال ضوابط أساسية"
+        ecc_excerpts = await asyncio.to_thread(ecc_kb.retrieve_for_query, fq)
+
+    user_block = (
+        f"### اسم الملف\n{filename}\n\n"
+        f"### تركيز المستخدم (اختياري)\n{(focus or '—').strip()}\n\n"
+        "### مقتطفات مرجعية من وثيقة ECC (استخراج آلياً — قد تنقص)\n"
+        f"{ecc_excerpts[:12000]}\n\n"
+        "### نص مستخرج من الملف\n"
+        f"{text[:32000]}"
+    )
+
+    if not settings.openai_api_key:
+        return (
+            f"تم استخراج {n} حرفاً من الملف. لتلخيص ذكي وربطاً بمرجع ECC، عيّن OPENAI_API_KEY في بيئة الخادم.\n\n"
+            f"معاينة أول 1500 حرف:\n\n{text[:1500]}",
+            False,
+            n,
+        )
+
+    try:
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(api_key=settings.openai_api_key)
+        r = await client.chat.completions.create(
+            model=settings.openai_model,
+            messages=[
+                {"role": "system", "content": FILE_ANALYZE_SYSTEM_AR},
+                {"role": "user", "content": user_block},
+            ],
+            max_tokens=min(settings.openai_max_tokens_chat, 3200),
+            temperature=settings.openai_temperature,
+        )
+        return (r.choices[0].message.content or "").strip(), True, n
+    except Exception as e:
+        return f"تعذر التحليل عبر النموذج: {e}", False, n
 
 
 def ai_parse_import_preview(rows: list[dict]) -> str:

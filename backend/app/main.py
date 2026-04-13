@@ -8,9 +8,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+from app.brand import PLATFORM_NAME_AR, PLATFORM_TAGLINE_AR
 from app.config import settings
 from app.database import Base, SessionLocal, engine, ensure_sqlite_columns
-from app.routers import ai_router, auth, compliance, controls, dashboard, departments, import_router, mappings
+from app.routers import ai_router, auth, compliance, controls, dashboard, departments, import_router, mappings, reports_router
 from app.services import ecc_kb
 from app.services.ecc_catalog_sync import sync_ecc_catalog
 from app.services.seed import seed_if_empty
@@ -38,8 +39,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="نظام إدارة الضوابط السيبرانية",
-    description="منصة امتثال مع طبقة ذكاء اصطناعي — وفق مقترح المشروع",
+    title=f"{PLATFORM_NAME_AR} — API",
+    description=f"{PLATFORM_TAGLINE_AR} — طبقة ذكاء اصطناعي وتحليل فجوات",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -60,6 +61,7 @@ app.include_router(dashboard.router, prefix="/api")
 app.include_router(ai_router.router, prefix="/api")
 app.include_router(import_router.router, prefix="/api")
 app.include_router(mappings.router, prefix="/api")
+app.include_router(reports_router.router, prefix="/api")
 
 
 @app.get("/api/health")

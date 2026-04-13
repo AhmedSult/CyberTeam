@@ -3,6 +3,12 @@ import { Spinner } from "./Spinner";
 
 export type ChatMsg = { role: "user" | "ai"; text: string };
 
+const DEFAULT_SUGGESTED_PROMPTS = [
+  "وش ناقصني في ECC حسب لقطة الامتثال وتحليل الفجوات؟",
+  "هل أنا متوافق مع الضابط حسب بيانات المنصة؟",
+  "ما الفرق بين حالة جزئي وممتثل عملياً؟",
+];
+
 type Props = {
   chat: string;
   setChat: (v: string) => void;
@@ -11,9 +17,19 @@ type Props = {
   chatSending: boolean;
   /** وضع مدمج في الصفحة الرئيسية — ارتفاع أصغر للرسائل */
   embed?: boolean;
+  /** اقتراحات سريعة تملأ مربع الإدخال */
+  suggestedPrompts?: string[];
 };
 
-export function AssistantChatPanel({ chat, setChat, chatLog, sendChat, chatSending, embed }: Props) {
+export function AssistantChatPanel({
+  chat,
+  setChat,
+  chatLog,
+  sendChat,
+  chatSending,
+  embed,
+  suggestedPrompts = DEFAULT_SUGGESTED_PROMPTS,
+}: Props) {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,6 +66,21 @@ export function AssistantChatPanel({ chat, setChat, chatLog, sendChat, chatSendi
         )}
         <div ref={endRef} />
       </div>
+      {suggestedPrompts.length > 0 && (
+        <div className="assistant-suggested" aria-label="أسئلة مقترحة">
+          {suggestedPrompts.map((p) => (
+            <button
+              key={p}
+              type="button"
+              className="btn-suggested-prompt"
+              disabled={chatSending}
+              onClick={() => setChat(p)}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="assistant-compose">
         <textarea
           className="field-input assistant-textarea"

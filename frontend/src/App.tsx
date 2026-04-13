@@ -11,7 +11,10 @@ import {
   getToken,
   setToken,
 } from "./api";
+import { PLATFORM_NAME_AR, PLATFORM_SHORT_DESC_AR, PLATFORM_TAGLINE_AR } from "./brand";
 import { AppShell } from "./components/AppShell";
+import { CodificationSettingsModal } from "./components/CodificationSettingsModal";
+import { InteractiveBackdrop } from "./components/InteractiveBackdrop";
 import { Spinner } from "./components/Spinner";
 import { AssistantPage } from "./pages/AssistantPage";
 import { HomePage } from "./pages/HomePage";
@@ -31,8 +34,8 @@ function TrustBar() {
 function AppFooter() {
   return (
     <footer className="nca-footer" dir="rtl">
-      <strong>تنويه:</strong> هذه المنصة مشروع/بيئة عرض أو داخلية و<strong>ليست</strong> تابعة للهيئة
-      الوطنية للأمن السيبراني. المرجع الرسمي للوثائق والخدمات:{" "}
+      <strong>تنويه:</strong> <strong>{PLATFORM_NAME_AR}</strong> منصة مشروع/بيئة عرض أو داخلية و<strong>ليست</strong>{" "}
+      تابعة للهيئة الوطنية للأمن السيبراني. المرجع الرسمي للوثائق والخدمات:{" "}
       <a href="https://nca.gov.sa/ar/" target="_blank" rel="noopener noreferrer">
         nca.gov.sa
       </a>
@@ -62,7 +65,14 @@ function LoginView({
       <TrustBar />
       <div style={loginStyles.shell}>
         <div style={{ maxWidth: 480, width: "100%" }}>
-          <p style={loginStyles.loginLead}>فضاء سيبراني أكثر جاهزية وموثوقية</p>
+          <div style={loginStyles.brandLockup}>
+            <img src="/logo.svg" alt="" width={56} height={64} style={{ flexShrink: 0 }} decoding="async" />
+            <div>
+              <p style={loginStyles.brandName}>{PLATFORM_NAME_AR}</p>
+              <p style={loginStyles.brandTag}>{PLATFORM_TAGLINE_AR}</p>
+            </div>
+          </div>
+          <p style={loginStyles.loginLead}>{PLATFORM_SHORT_DESC_AR}</p>
           <p style={loginStyles.loginSub}>
             إدارة الضوابط والامتثال بشكل مركزي — مع إرشادات تطبيق ومساعد ذكاء اصطناعي للتحليل
           </p>
@@ -131,6 +141,7 @@ export default function App() {
   const [chatSending, setChatSending] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [codificationOpen, setCodificationOpen] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -270,71 +281,86 @@ export default function App() {
 
   if (!token) {
     return (
-      <LoginView
-        email={email}
-        setEmail={setEmail}
-        password={password}
-        setPassword={setPassword}
-        err={err}
-        onLogin={onLogin}
-        loginLoading={loginLoading}
-      />
+      <>
+        <InteractiveBackdrop />
+        <div className="app-content-layer">
+          <LoginView
+            email={email}
+            setEmail={setEmail}
+            password={password}
+            setPassword={setPassword}
+            err={err}
+            onLogin={onLogin}
+            loginLoading={loginLoading}
+          />
+        </div>
+      </>
     );
   }
 
   return (
     <BrowserRouter>
-      <TrustBar />
-      <Routes>
-        <Route element={<AppShell onLogout={logout} />}>
-          <Route
-            index
-            element={
-              <HomePage
-                err={err}
-                stats={stats}
-                frameworks={frameworks}
-                fw={fw}
-                setFw={setFw}
-                depts={depts}
-                deptFilter={deptFilter}
-                setDeptFilter={setDeptFilter}
-                loading={loading}
-                loadData={loadData}
-                gapLoading={gapLoading}
-                gap={gap}
-                runGap={runGap}
-                onComplianceTableFilterChange={clearGapSummary}
-                currentUser={currentUser}
-                records={records}
-                controlById={controlById}
-                deptById={deptById}
-                patchingRecordId={patchingRecordId}
-                updateStatus={updateStatus}
-                chat={chat}
-                setChat={setChat}
-                chatLog={chatLog}
-                sendChat={sendChat}
-                chatSending={chatSending}
-              />
-            }
-          />
-          <Route
-            path="assistant"
-            element={
-              <AssistantPage
-                chat={chat}
-                setChat={setChat}
-                chatLog={chatLog}
-                sendChat={sendChat}
-                chatSending={chatSending}
-              />
-            }
-          />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      <AppFooter />
+      <InteractiveBackdrop />
+      <div className="app-content-layer">
+        <TrustBar />
+        <Routes>
+          <Route element={<AppShell onLogout={logout} onOpenCodification={() => setCodificationOpen(true)} />}>
+            <Route
+              index
+              element={
+                <HomePage
+                  err={err}
+                  stats={stats}
+                  frameworks={frameworks}
+                  fw={fw}
+                  setFw={setFw}
+                  depts={depts}
+                  deptFilter={deptFilter}
+                  setDeptFilter={setDeptFilter}
+                  loading={loading}
+                  loadData={loadData}
+                  gapLoading={gapLoading}
+                  gap={gap}
+                  runGap={runGap}
+                  onComplianceTableFilterChange={clearGapSummary}
+                  onOpenCodificationSettings={() => setCodificationOpen(true)}
+                  records={records}
+                  controlById={controlById}
+                  deptById={deptById}
+                  patchingRecordId={patchingRecordId}
+                  updateStatus={updateStatus}
+                  chat={chat}
+                  setChat={setChat}
+                  chatLog={chatLog}
+                  sendChat={sendChat}
+                  chatSending={chatSending}
+                />
+              }
+            />
+            <Route
+              path="assistant"
+              element={
+                <AssistantPage
+                  chat={chat}
+                  setChat={setChat}
+                  chatLog={chatLog}
+                  sendChat={sendChat}
+                  chatSending={chatSending}
+                />
+              }
+            />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <AppFooter />
+        <CodificationSettingsModal
+          open={codificationOpen}
+          onClose={() => setCodificationOpen(false)}
+          depts={depts}
+          onDepartmentsChanged={loadData}
+          currentUser={currentUser}
+        />
+      </div>
     </BrowserRouter>
   );
 }
@@ -346,13 +372,35 @@ const loginStyles: Record<string, React.CSSProperties> = {
     placeItems: "center",
     padding: "2rem 1.25rem",
   },
-  loginLead: {
+  brandLockup: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "0.85rem",
+    marginBottom: "1rem",
+    flexWrap: "wrap",
+  },
+  brandName: {
     fontFamily: "Tajawal, var(--font-body)",
     fontWeight: 800,
-    fontSize: "1.5rem",
+    fontSize: "1.65rem",
     color: "var(--nca-green-dark)",
+    margin: 0,
+    lineHeight: 1.25,
+  },
+  brandTag: {
+    fontSize: "0.9rem",
+    color: "var(--muted)",
+    margin: "0.2rem 0 0",
+    fontWeight: 600,
+  },
+  loginLead: {
+    fontFamily: "Tajawal, var(--font-body)",
+    fontWeight: 700,
+    fontSize: "1.05rem",
+    color: "var(--text)",
     margin: "0 0 0.5rem",
-    lineHeight: 1.3,
+    lineHeight: 1.5,
     textAlign: "center",
   },
   loginSub: {

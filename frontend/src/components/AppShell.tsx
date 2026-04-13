@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { PLATFORM_NAME_AR, PLATFORM_TAGLINE_AR } from "../brand";
 
 function AssistantIcon() {
   return (
@@ -20,14 +21,43 @@ function HomeIcon() {
   );
 }
 
-export function AppShell({ onLogout }: { onLogout: () => void }) {
+function SettingsIcon() {
+  return (
+    <svg className="nav-settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+}
+
+export function AppShell({
+  onLogout,
+  onOpenCodification,
+}: {
+  onLogout: () => void;
+  onOpenCodification: () => void;
+}) {
   return (
     <>
       <header className="app-topnav" dir="rtl">
         <div className="app-topnav-inner">
-          <div className="app-topnav-brand">
-            <span className="app-topnav-title">لوحة الامتثال والضوابط السيبرانية</span>
-            <span className="app-topnav-sub">تتبع الجاهزية والامتثال — مع مساعد ذكي</span>
+          <div className="app-topnav-brand app-topnav-brand-lockup">
+            <img
+              src="/logo.svg"
+              alt=""
+              className="app-brand-logo-img"
+              width={44}
+              height={50}
+              decoding="async"
+            />
+            <div className="app-topnav-brand-text">
+              <span className="app-topnav-title">{PLATFORM_NAME_AR}</span>
+              <span className="app-topnav-sub">{PLATFORM_TAGLINE_AR}</span>
+            </div>
           </div>
           <nav className="app-topnav-actions" aria-label="التنقل الرئيسي">
             <NavLink
@@ -46,6 +76,15 @@ export function AppShell({ onLogout }: { onLogout: () => void }) {
               <AssistantIcon />
               <span className="nav-ai-label">المساعد الذكي</span>
             </NavLink>
+            <button
+              type="button"
+              className="nav-settings"
+              onClick={onOpenCodification}
+              title="إعدادات ترميز الإدارات — إضافة وتعريف الوحدات التنظيمية"
+            >
+              <SettingsIcon />
+              <span className="nav-settings-label">ترميز الإدارات</span>
+            </button>
             <button type="button" className="nav-logout" onClick={onLogout}>
               تسجيل الخروج
             </button>

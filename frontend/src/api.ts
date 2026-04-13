@@ -11,10 +11,14 @@ export function setToken(t: string | null) {
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const hadStoredToken = !!getToken();
+  const isFormData = init?.body instanceof FormData;
   const headers: Record<string, string> = {
     Accept: "application/json",
     ...(init?.headers as Record<string, string>),
   };
+  if (!isFormData && init?.body != null && typeof init.body === "string") {
+    headers["Content-Type"] = headers["Content-Type"] || "application/json";
+  }
   const tok = getToken();
   if (tok) headers.Authorization = `Bearer ${tok}`;
   const r = await fetch(`${base}${path}`, { ...init, headers });
@@ -113,7 +117,35 @@ export const api = {
         }),
       }
     ),
+  /** PDF/Excel/CSV: استخراج + RAG (ECC) + تحليل لغوي */
+  analyzeFile: (file: File, focus?: string) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    if (focus) fd.append("focus", focus);
+    return req<{ analysis: string; used_llm: boolean; extracted_chars: number }>("/ai/analyze-file", {
+      method: "POST",
+      body: fd,
+    });
+  },
 };
+
+export async function downloadCompliancePdf(opts?: {
+  department_id?: number;
+  framework_id?: number;
+}): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (opts?.department_id != null) params.set("department_id", String(opts.department_id));
+  if (opts?.framework_id != null) params.set("framework_id", String(opts.framework_id));
+  const tok = getToken();
+  const r = await fetch(`${base}/reports/compliance.pdf?${params.toString()}`, {
+    headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(t || r.statusText);
+  }
+  return r.blob();
+}
 
 export type Framework = {
   id: number;
@@ -165,4 +197,5 @@ export type DashboardStats = {
   not_started: number;
   not_applicable: number;
   compliance_rate: number;
+  gap_open_count: number;
 };

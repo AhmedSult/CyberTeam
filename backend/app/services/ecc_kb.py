@@ -144,6 +144,15 @@ def _extract_chunks_from_pdf(pdf_bytes: bytes) -> list[str]:
     return out
 
 
+def extract_plain_text_from_pdf_bytes(pdf_bytes: bytes, max_chars: int = 48000) -> str:
+    """استخراج نص من PDF مرفوع (لتحليل المستخدم) — ليس لفهرسة ECC."""
+    chunks = _extract_chunks_from_pdf(pdf_bytes)
+    if not chunks:
+        return ""
+    full = "\n\n".join(chunks)
+    return full[:max_chars].strip()
+
+
 def _download_pdf(url: str) -> bytes:
     headers = {"User-Agent": "CyberCompliance-ECC-Index/1.0 (+local RAG)"}
     with httpx.Client(timeout=180.0, follow_redirects=True, headers=headers) as client:
