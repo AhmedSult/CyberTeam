@@ -46,3 +46,14 @@ npm run dev
 
 - `backend/app` — FastAPI، SQLAlchemy، خدمة AI
 - `frontend/src` — React + Vite، واجهة عربية
+
+## النشر على Streamlit Cloud
+
+Streamlit يشغّل **ملف Python واحد** من الجذر، وليس FastAPI + React معاً.
+
+- **ملف الدخول:** `streamlit_app.py` (في جذر المستودع)
+- **التبعيات:** `requirements.txt` في الجذر (خاص بـ Streamlit)
+- في لوحة Streamlit: **Main file path** = `streamlit_app.py`
+- (اختياري) بعد نشر الـ API على Render وغيره: في **Secrets** أضف `API_URL = "https://...."` ثم استخدم «فحص /api/health» من الشريط الجانبي
+
+للنسخة الكاملة (واجهة + API + قاعدة بيانات) استخدم Render / Railway / VPS أو Docker — انظر أقسام التشغيل أعلاه.
