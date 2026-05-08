@@ -1,114 +1,61 @@
-# درع سيبراني — إدارة الضوابط والامتثال السيبراني (مشروع ذكاء اصطناعي)
+# درع سيبراني — Cyber Shield
 
-تنفيذ عملي لمنصة **درع سيبراني** لإدارة **الضوابط والامتثال** مع **مرحلة ذكاء اصطناعي**: مساعد محادثة، تحليل فجوات (قاعدي أو عبر LLM عند توفر مفتاح)، واستيراد من Excel/CSV.
+منصّة Streamlit متكاملة لإدارة **الضوابط والامتثال السيبراني**، مخصّصة وفق توجيهات
+الهيئة الوطنية للأمن السيبراني (NCA) ووثيقة الضوابط الأساسية ECC-2-2024.
 
-## المتطلبات
-
-- Python 3.12+
-- (اختياري) Node.js فقط إذا أردت تشغيل الواجهة القديمة في `frontend/`
-
-## تشغيل الخادم (API)
-
-```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env        # ثم عيّن OPENAI_API_KEY إن رغبت
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-- وثائق تفاعلية: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- مستخدم تجريبي: `admin@example.com` / `admin123`
-
-## تشغيل الواجهة الرئيسية (Streamlit — بنمط DHWO)
+## التشغيل المحلي
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+source .venv/bin/activate            # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
-افتح [http://127.0.0.1:8501](http://127.0.0.1:8501)
+افتح [http://localhost:8501](http://localhost:8501).
 
-> واجهة Streamlit أصبحت المسار الأساسي للتشغيل المحلي والنشر.
-
-## ما يتضمنه المشروع
-
-| المكوّن | الوصف |
-|--------|--------|
-| مكتبة ضوابط | إطارات عيّنة: NCA ECC، NIST CSF، ISO 27001 مع ربط متقاطع نموذجي |
-| تتبع امتثال | سجلات لكل إدارة وحالات: لم يبدأ / جزئي / ممتثل / لا ينطبق |
-| أدلة | رفع ملفات مرتبطة بسجل امتثال |
-| استيراد | معاينة واستيراد ضوابط من CSV/XLSX |
-| ذكاء اصطناعي | `/api/ai/chat` و `/api/ai/gap-analysis` — بدون مفتاح: قواعد؛ مع `OPENAI_API_KEY`: نموذج لغوي |
-| حوكمة | JWT، أدوار (admin, auditor, owner, viewer)، سجل تدقيق عند تحديث الامتثال |
-
-## هيكل المجلدات
-
-- `backend/app` — FastAPI، SQLAlchemy، خدمة AI
-- `app.py` — تطبيق Streamlit الرئيسي
-- `streamlit_app.py` — نقطة دخول Streamlit Cloud
-- `cyber_observatory/` — طبقة الواجهة (theme / i18n / client / demo)
-- `frontend/src` — واجهة قديمة (Legacy)
-
-## النشر على Streamlit Cloud (بنمط DHWO)
-
-تمت إضافة نسخة Streamlit موحدة بهيكل modular مشابه لتقنيات مشروع DHWO:
-
-- **نقطة التشغيل الأساسية:** `app.py`
-- **نقطة دخول السحابة:** `streamlit_app.py` (تستدعي `app.main()`)
-- **الوحدات المساعدة:** `cyber_observatory/` (تقسيم `theme` + `i18n` + `client` + `demo_data`)
-
-إعداد Streamlit Cloud:
+## النشر على Streamlit Cloud
 
 - **Main file path:** `streamlit_app.py`
-- **requirements:** `requirements.txt` في الجذر
-- (اختياري) لإحضار البيانات الحية من الـ backend أضف في Secrets:
-  - `API_URL = "https://...."`
+- **Python version:** 3.12
+- **Requirements:** `requirements.txt` (في الجذر)
 
-محتوى النسخة الجديدة:
+في إعدادات التطبيق ← **Secrets**، أضف:
 
-- تنقل علوي متعدد الصفحات (Overview / Compliance / Assistant / API)
-- واجهة RTL محسّنة وثيم light/dark
-- ربط مباشر مع API (تسجيل دخول JWT + Dashboard stats + Gap analysis + AI chat)
-- وضع تجريبي fallback عند غياب الاتصال بالخادم
-
-للنسخة الكاملة (واجهة + API + قاعدة بيانات) استخدم Render / Railway / VPS أو Docker — انظر أقسام التشغيل أعلاه.
-
-## نشر الموقع الكامل (واجهة Streamlit + API)
-
-المشروع يعتمد الآن على **Streamlit + FastAPI** كمسار رئيسي.
-
-### خيار Docker (موصى به للبداية)
-
-من **جذر المستودع**:
-
-```bash
-docker build -t draya-cyber .
-docker run -p 8000:8000 \
-  -e SECRET_KEY=ضع_مفتاحاً_عشوائياً_طويلاً \
-  -e OPENAI_API_KEY=اختياري \
-  draya-cyber
+```toml
+OPENAI_API_KEY = "sk-..."
+OPENAI_MODEL  = "gpt-4o-mini"
+# اختياري: سياسات/معايير داخلية تُلحَق برسالة النظام للمساعد
+AI_SA_CYBER_CONTEXT_EXTRA = """
+معايير المنظمة الداخلية: ...
+"""
 ```
 
-ثم:
-- افتح الـ API على `http://localhost:8000`
-- وشغّل Streamlit منفصلًا من الجذر: `streamlit run streamlit_app.py`
+## بنية المشروع
 
-### Render.com (مجاني محدود)
+```
+streamlit_app.py        نقطة الدخول لـ Streamlit Cloud
+app.py                  واجهة المستخدم وصفحات التطبيق
+cyber_observatory/
+  ai_prompts.py         رسائل النظام للمساعد (NCA / ECC)
+  demo_data.py          بيانات أوّلية للضوابط والسجلات
+  i18n.py               نصوص العربية/الإنجليزية
+  theme.py              ثيم RTL مع وضع فاتح/داكن
+.streamlit/config.toml  إعدادات Streamlit
+requirements.txt        التبعيات
+```
 
-1. أنشئ **Web Service** من نفس المستودع، **Docker** كبيئة تشغيل.
-2. أضف متغيرات البيئة: `SECRET_KEY`، واختياري `OPENAI_API_KEY`، `DATABASE_URL` (أو اترك SQLite الافتراضي مع العلم أن القرص قد يُعاد عند إعادة التشغيل على الطبقة المجانية).
-3. المنفذ: **8000**.
+## المميزات
 
-### Railway / Fly.io / VPS
+- لوحة نظرة عامة مع مؤشرات وتوزيع الامتثال حسب المجال.
+- إدارة سجلات الامتثال (تحديث الحالة، الفلاتر، البحث، إضافة إدارات، تنزيل CSV).
+- استيراد ملفات CSV/XLSX للمعاينة.
+- تحليل فجوات قاعدي مدمج.
+- مساعد ذكي مدعوم بـ OpenAI (تدفّق فوري) ومخصّص لضوابط NCA/ECC، مع وضع تحليل
+  محلي عند غياب المفتاح، وزر اختبار اتصال داخل الواجهة.
 
-نفس فكرة Docker: ابنِ الصورة وشغّلها مع المنفذ 8000 ومتغيرات البيئة.
+## مراجع
 
-### ملاحظات
-
-- **Streamlit (`streamlit_app.py`) هو الواجهة الرئيسية الحالية**.
-- مجلد `frontend/` موجود كنسخة Legacy للرجوع إليه فقط، وليس مسار التشغيل الافتراضي.
-- إذا فصلت Streamlit عن الـ API على نطاقين مختلفين، عيّن `CORS_ORIGINS` في إعدادات الخادم (انظر `backend/.env.example`).
+- الهيئة الوطنية للأمن السيبراني: <https://nca.gov.sa>
+- الضوابط الأساسية ECC-2-2024 (PDF):
+  <https://cdn.nca.gov.sa/api/files/public/upload/29a9e86a-595f-4af9-8db5-88715a458a14_ECC-2-2024---NCA.pdf>

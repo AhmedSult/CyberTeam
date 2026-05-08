@@ -1,17 +1,13 @@
-# Python cache / bytecode
 __pycache__/
 *.py[cod]
-
-# Virtual environments
+*$py.class
 .venv/
 venv/
-backend/.venv/
-
-# Environment files
 .env
-backend/.env
-
-# Local build artifacts
+.env.local
+.env.*.local
+.streamlit/secrets.toml
 .DS_Store
 *.log
-
+.idea/
+.vscode/
