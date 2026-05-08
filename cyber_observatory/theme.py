@@ -42,17 +42,48 @@ def inject_theme(lang: Lang, mode: str) -> None:
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
-html, body, .stApp {{
-    font-family: 'Tajawal', 'Inter', system-ui, -apple-system, sans-serif;
+/* ===== Unified font for the entire app (incl. popovers, dialogs, editors) ===== */
+:root {{
+    --app-font: 'Tajawal', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }}
-.stApp p, .stApp span:not([data-testid="stIconMaterial"]):not([class*="material"]),
-.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
-.stApp button, .stApp input, .stApp textarea, .stApp label, .stApp a,
-.stApp div:not([data-testid="stIconMaterial"]) {{
-    font-family: 'Tajawal', 'Inter', system-ui, -apple-system, sans-serif;
+
+html, body, .stApp,
+.stApp *:not([data-testid="stIconMaterial"]):not(.material-icons):not(.material-symbols-rounded):not(.material-symbols-outlined):not([class*="material-symbols"]):not(i) {{
+    font-family: var(--app-font) !important;
 }}
+
+/* Streamlit popover content lives in a portal outside .stApp — target globally */
+[data-testid="stPopover"], [data-testid="stPopoverBody"],
+[data-testid="stPopover"] *, [data-testid="stPopoverBody"] *,
+[data-baseweb="popover"], [data-baseweb="popover"] *,
+[data-baseweb="menu"], [data-baseweb="menu"] *,
+[data-baseweb="select"], [data-baseweb="select"] *,
+[data-baseweb="select-dropdown"], [data-baseweb="select-dropdown"] *,
+[role="listbox"], [role="listbox"] *,
+[role="option"], [role="option"] *,
+[role="menuitem"], [role="menuitem"] *,
+[data-testid="stDialog"], [data-testid="stDialog"] *,
+[data-testid="stModal"], [data-testid="stModal"] *,
+[data-testid="stTooltipContent"], [data-testid="stTooltipContent"] *,
+[data-testid="stDataFrame"], [data-testid="stDataFrame"] *,
+[data-testid="stDataEditor"], [data-testid="stDataEditor"] *,
+.stChatFloatingInputContainer, .stChatFloatingInputContainer *,
+.stChatMessage, .stChatMessage *,
+.stTabs, .stTabs *,
+.stMarkdown, .stMarkdown *,
+input, textarea, select, button, optgroup, option {{
+    font-family: var(--app-font) !important;
+}}
+
+/* Glide data grid (st.dataframe / st.data_editor) overrides */
+.glideDataEditor, .glideDataEditor * {{
+    font-family: var(--app-font) !important;
+}}
+
+/* Material icons must keep their own font */
 [data-testid="stIconMaterial"],
-.material-icons, .material-symbols-rounded, .material-symbols-outlined {{
+.material-icons, .material-symbols-rounded, .material-symbols-outlined,
+[class*="material-symbols"] {{
     font-family: 'Material Symbols Rounded', 'Material Icons', 'Material Symbols Outlined' !important;
     font-feature-settings: 'liga' !important;
 }}
@@ -277,6 +308,19 @@ section[data-testid="stSidebar"] {{ display: none !important; }}
     margin: 0 0 1rem 0;
     font-size: 0.95rem;
 }}
+.hint-box {{
+    background: {card_alt};
+    border: 1px solid {border};
+    border-inline-start: 4px solid {primary};
+    border-radius: 12px;
+    padding: 0.85rem 1rem;
+    margin: 0 0 1rem 0;
+    color: {text};
+    font-size: 0.92rem;
+    line-height: 1.7;
+}}
+.hint-box b {{ color: {primary}; }}
+.hint-box ol {{ color: {text}; }}
 
 /* ===== Inputs ===== */
 [data-baseweb="input"] input,
