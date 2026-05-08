@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import io
-from datetime import datetime
 
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from cyber_observatory.client import ApiClient
-from cyber_observatory.demo_data import demo_records, demo_stats
+from cyber_observatory.demo_data import (
+    calc_stats,
+    seed_controls,
+    seed_departments,
+    seed_frameworks,
+    seed_records,
+)
 from cyber_observatory.i18n import Lang, t
 from cyber_observatory.theme import hero_html, inject_theme
 
@@ -17,12 +21,19 @@ def _init_state() -> None:
     st.session_state.setdefault("lang", "ar")
     st.session_state.setdefault("theme", "light")
     st.session_state.setdefault("nav", "overview")
-    st.session_state.setdefault("api_url", st.secrets.get("API_URL", "http://127.0.0.1:8000"))
-    st.session_state.setdefault("token", "")
     st.session_state.setdefault("chat", [])
     st.session_state.setdefault("framework_id", "")
     st.session_state.setdefault("department_id", "")
     st.session_state.setdefault("table_search", "")
+    st.session_state.setdefault("gap_summary", "")
+    if "frameworks_df" not in st.session_state:
+        st.session_state.frameworks_df = seed_frameworks()
+    if "departments_df" not in st.session_state:
+        st.session_state.departments_df = seed_departments()
+    if "controls_df" not in st.session_state:
+        st.session_state.controls_df = seed_controls()
+    if "records_df" not in st.session_state:
+        st.session_state.records_df = seed_records()
 
 
 def _top_nav(lang: Lang) -> None:
@@ -44,88 +55,43 @@ def _top_nav(lang: Lang) -> None:
                 st.session_state.nav = key
 
 
-def _sidebar(lang: Lang) -> ApiClient:
+def _sidebar() -> None:
     with st.sidebar:
         st.selectbox("Language", ["ar", "en"], key="lang")
         st.selectbox("Theme", ["light", "dark"], key="theme")
-        st.text_input(t(lang, "api_url"), key="api_url")
-
-        client = ApiClient(base_url=st.session_state.api_url.rstrip("/"), token=st.session_state.token or None)
-        st.markdown(f"#### {t(lang, 'login_title')}")
-        email = st.text_input(t(lang, "email"), value="admin@example.com", key="login_email")
-        pwd = st.text_input(t(lang, "password"), value="admin123", type="password", key="login_password")
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button(t(lang, "login_btn"), use_container_width=True):
-                try:
-                    token = client.login(email, pwd)
-                    st.session_state.token = token
-                    st.success("OK")
-                except Exception as exc:
-                    st.error(str(exc))
-        with c2:
-            if st.button(t(lang, "logout_btn"), use_container_width=True):
-                st.session_state.token = ""
-                st.rerun()
-    return ApiClient(base_url=st.session_state.api_url.rstrip("/"), token=st.session_state.token or None)
+        st.success("جاهز للعمل مباشرة على Streamlit Cloud")
+        st.caption("لا يحتاج API خارجي أو تسجيل دخول.")
 
 
-def _load_refs(client: ApiClient) -> tuple[list[dict], list[dict]]:
-    frameworks: list[dict] = []
-    departments: list[dict] = []
-    try:
-        if client.token:
-            frameworks = client.frameworks()
-            departments = client.departments()
-    except Exception:
-        pass
-    return frameworks, departments
+def _filter_controls_records() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, float | int]]:
+    controls = st.session_state.controls_df.copy()
+    records = st.session_state.records_df.copy()
+    departments = st.session_state.departments_df.copy()
+    frameworks = st.session_state.frameworks_df.copy()
 
+    if st.session_state.framework_id:
+        fw = int(st.session_state.framework_id)
+        controls = controls[controls["framework_id"] == fw]
+    if st.session_state.department_id:
+        dept = int(st.session_state.department_id)
+        records = records[records["department_id"] == dept]
 
-def _filter_controls_records(client: ApiClient) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, float | int]]:
-    connected = False
-    try:
-        if not client.token:
-            raise RuntimeError("demo")
-        fw = int(st.session_state.framework_id) if st.session_state.framework_id else None
-        dept = int(st.session_state.department_id) if st.session_state.department_id else None
-        controls = pd.DataFrame(client.controls(framework_id=fw))
-        records = pd.DataFrame(client.records(department_id=dept))
-        raw = client.stats()
-        stats = {
-            "total_controls": raw["total_controls"],
-            "compliance_rate": raw["compliance_rate"],
-            "gap_open_count": raw["gap_open_count"],
-            "records_total": raw["compliant"] + raw["partial"] + raw["not_started"] + raw["not_applicable"],
-            "compliant": raw["compliant"],
-            "partial": raw["partial"],
-            "not_started": raw["not_started"],
-            "not_applicable": raw["not_applicable"],
-        }
-        connected = True
-    except Exception:
-        controls = pd.DataFrame(
-            [
-                {"id": 1, "control_ref": "ECC-1-1", "title_ar": "الحوكمة", "domain_ar": "الحوكمة", "framework_id": 1},
-                {"id": 2, "control_ref": "ECC-1-2", "title_ar": "إدارة الأصول", "domain_ar": "التعزيز", "framework_id": 1},
-            ]
-        )
-        records = demo_records().rename(columns={"control_id": "control_id"})
-        stats = demo_stats()
-    if not records.empty and not controls.empty and "id" in controls.columns:
-        merged = records.merge(controls, left_on="control_id", right_on="id", how="left")
-    else:
-        merged = records
+    merged = records.merge(controls, left_on="control_id", right_on="id", how="left")
+    merged = merged.merge(departments[["id", "name_ar", "code"]], left_on="department_id", right_on="id", how="left")
+    merged = merged.rename(columns={"name_ar": "department_name_ar", "code": "department_code"})
+    merged = merged.merge(frameworks[["id", "name_ar"]], left_on="framework_id", right_on="id", how="left")
+    merged = merged.rename(columns={"name_ar": "framework_name_ar"})
     if st.session_state.table_search and not merged.empty:
         q = st.session_state.table_search.strip().lower()
         mask = merged.astype(str).apply(lambda s: s.str.lower().str.contains(q, na=False))
         merged = merged[mask.any(axis=1)]
-    st.info(t(st.session_state.lang, "connected") if connected else t(st.session_state.lang, "not_connected"))
+    stats = calc_stats(records=records, controls=controls)
+    st.info("تشغيل تلقائي مدمج — جاهز للمراجعة عبر الإنترنت.")
     return controls, merged, stats
 
 
-def _overview(lang: Lang, client: ApiClient) -> None:
-    _, merged, stats = _filter_controls_records(client)
+def _overview(lang: Lang) -> None:
+    _, merged, stats = _filter_controls_records()
 
     m1, m2, m3, m4 = st.columns(4)
     m1.metric(t(lang, "metric_controls"), f"{stats['total_controls']}")
@@ -150,9 +116,10 @@ def _overview(lang: Lang, client: ApiClient) -> None:
         st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False})
 
 
-def _compliance(lang: Lang, client: ApiClient) -> None:
+def _compliance(lang: Lang) -> None:
     st.subheader(t(lang, "nav_compliance"))
-    frameworks, departments = _load_refs(client)
+    frameworks = st.session_state.frameworks_df.to_dict("records")
+    departments = st.session_state.departments_df.to_dict("records")
     f1, f2, f3 = st.columns([1, 1, 2])
     with f1:
         fw_opts = {"": "الكل"}
@@ -165,10 +132,21 @@ def _compliance(lang: Lang, client: ApiClient) -> None:
     with f3:
         st.text_input("بحث في الجدول", key="table_search", placeholder="رقم الضابط، الاسم، المجال، الوصف...")
 
-    controls, merged, _ = _filter_controls_records(client)
-    st.dataframe(merged, use_container_width=True, hide_index=True)
+    controls, merged, _ = _filter_controls_records()
+    show_cols = [
+        "id_x",
+        "control_ref",
+        "title_ar",
+        "domain_ar",
+        "framework_name_ar",
+        "department_name_ar",
+        "status",
+        "evidence_summary",
+    ]
+    available_cols = [c for c in show_cols if c in merged.columns]
+    st.dataframe(merged[available_cols], use_container_width=True, hide_index=True)
 
-    if client.token and not merged.empty and "id_x" in merged.columns:
+    if not merged.empty and "id_x" in merged.columns:
         st.markdown("### تحديث حالة سجل")
         r1, r2, r3 = st.columns(3)
         with r1:
@@ -178,93 +156,69 @@ def _compliance(lang: Lang, client: ApiClient) -> None:
         with r3:
             if st.button("حفظ الحالة", type="primary", use_container_width=True):
                 try:
-                    client.patch_record(rec_id, new_status)
+                    df = st.session_state.records_df.copy()
+                    df.loc[df["id"] == rec_id, "status"] = new_status
+                    st.session_state.records_df = df
                     st.success("تم التحديث.")
                 except Exception as exc:
                     st.error(str(exc))
 
     st.markdown("### تحليل فجوات")
     if st.button("تشغيل تحليل الفجوات", type="primary"):
-        try:
-            if client.token:
-                st.write(client.gap_analysis().get("gaps_summary", ""))
-            else:
-                st.info("يلزم تسجيل الدخول للـ API.")
-        except Exception as exc:
-            st.error(str(exc))
-
-    if client.token and frameworks:
-        st.markdown("### شرح الإطار")
-        selected = int(st.session_state.framework_id) if st.session_state.framework_id else frameworks[0]["id"]
-        if st.button("شرح الإطار والمعيار"):
-            try:
-                ex = client.explain_framework(selected)
-                st.write(ex.get("explanation", ""))
-                if ex.get("official_ecc_pdf_url"):
-                    st.markdown(f"[وثيقة ECC الرسمية]({ex['official_ecc_pdf_url']})")
-            except Exception as exc:
-                st.error(str(exc))
+        open_gaps = merged[merged["status"].isin(["partial", "not_started"])] if "status" in merged.columns else pd.DataFrame()
+        if open_gaps.empty:
+            st.session_state.gap_summary = "لا توجد فجوات مفتوحة في النطاق الحالي."
+        else:
+            refs = ", ".join(open_gaps["control_ref"].dropna().astype(str).head(8).tolist())
+            st.session_state.gap_summary = (
+                f"تم رصد {len(open_gaps)} سجلات بحاجة معالجة. "
+                f"أعلى الأولويات: {refs}. "
+                "التوصية: ابدأ بالضوابط ذات حالة not_started، ثم أغلق partial بالأدلة."
+            )
+        st.success("اكتمل التحليل.")
+        st.write(st.session_state.gap_summary)
 
     st.markdown(f"### {t(lang, 'upload_title')}")
-    up = st.file_uploader("CSV / XLSX / PDF", type=["csv", "xlsx", "xls", "pdf"])
+    up = st.file_uploader("CSV / XLSX", type=["csv", "xlsx", "xls"])
     if up is not None:
         raw = up.read()
-        if up.name.lower().endswith(".pdf"):
-            focus = st.text_input("تركيز التحليل (اختياري)", placeholder="مثال: المخاطر عالية الأولوية")
-            if st.button("تحليل الملف بالذكاء الاصطناعي"):
-                try:
-                    if not client.token:
-                        st.error("يلزم تسجيل الدخول.")
-                    else:
-                        ans = client.analyze_file(up.name, raw, focus=focus or None)
-                        st.write(ans.get("analysis", ""))
-                except Exception as exc:
-                    st.error(str(exc))
+        if up.name.lower().endswith(".csv"):
+            udf = pd.read_csv(io.BytesIO(raw))
         else:
-            if up.name.lower().endswith(".csv"):
-                udf = pd.read_csv(io.BytesIO(raw))
-            else:
-                udf = pd.read_excel(io.BytesIO(raw), sheet_name=0)
-            st.dataframe(udf.head(25), use_container_width=True, hide_index=True)
+            udf = pd.read_excel(io.BytesIO(raw), sheet_name=0)
+        st.dataframe(udf.head(25), use_container_width=True, hide_index=True)
+        st.caption("يمكن استخدام المعاينة الآن لأخذ ملاحظات الفريق قبل ربط الاستيراد الرسمي.")
 
-    st.markdown("### تقرير امتثال PDF")
-    if st.button("تنزيل التقرير", use_container_width=True):
-        try:
-            if not client.token:
-                st.error("يلزم تسجيل الدخول.")
-            else:
-                dep = int(st.session_state.department_id) if st.session_state.department_id else None
-                fw = int(st.session_state.framework_id) if st.session_state.framework_id else None
-                pdf_bytes = client.download_compliance_pdf(department_id=dep, framework_id=fw)
-                date = datetime.now().strftime("%Y-%m-%d")
-                st.download_button(
-                    "تحميل الآن",
-                    data=pdf_bytes,
-                    file_name=f"compliance-report-{date}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                )
-        except Exception as exc:
-            st.error(str(exc))
+    st.markdown("### تنزيل تقرير")
+    csv_data = merged.to_csv(index=False).encode("utf-8-sig")
+    st.download_button(
+        "تحميل تقرير الامتثال (CSV)",
+        data=csv_data,
+        file_name="compliance-report.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
 
     st.markdown("### إعدادات ترميز الإدارات")
-    if client.token:
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            dep_code = st.text_input("Code", key="new_dep_code")
-        with c2:
-            dep_ar = st.text_input("الاسم العربي", key="new_dep_ar")
-        with c3:
-            dep_en = st.text_input("English name", key="new_dep_en")
-        if st.button("إضافة إدارة", type="primary"):
-            try:
-                client.create_department(dep_ar.strip(), dep_en.strip(), dep_code.strip() or None)
-                st.success("تمت الإضافة.")
-            except Exception as exc:
-                st.error(str(exc))
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        dep_code = st.text_input("Code", key="new_dep_code")
+    with c2:
+        dep_ar = st.text_input("الاسم العربي", key="new_dep_ar")
+    with c3:
+        dep_en = st.text_input("English name", key="new_dep_en")
+    if st.button("إضافة إدارة", type="primary"):
+        if not dep_ar.strip() or not dep_en.strip():
+            st.error("أدخل اسم الإدارة بالعربي والإنجليزي.")
+        else:
+            df = st.session_state.departments_df.copy()
+            nxt = int(df["id"].max()) + 1 if not df.empty else 1
+            df.loc[len(df)] = {"id": nxt, "code": dep_code.strip() or None, "name_ar": dep_ar.strip()}
+            st.session_state.departments_df = df
+            st.success("تمت الإضافة.")
 
 
-def _assistant(lang: Lang, client: ApiClient) -> None:
+def _assistant(lang: Lang) -> None:
     st.subheader(t(lang, "nav_assistant"))
     for msg in st.session_state.chat:
         with st.chat_message(msg["role"]):
@@ -272,51 +226,51 @@ def _assistant(lang: Lang, client: ApiClient) -> None:
 
     if prompt := st.chat_input(t(lang, "assistant_hint")):
         st.session_state.chat.append({"role": "user", "content": prompt})
-        answer = "نموذج تجريبي: اربط API وسجّل الدخول لتفعيل الرد الذكي."
-        try:
-            if client.token:
-                result = client.chat(prompt)
-                answer = result.get("reply", answer)
-        except Exception:
-            pass
+        _, merged, stats = _filter_controls_records()
+        open_count = int((merged["status"].isin(["partial", "not_started"])).sum()) if "status" in merged.columns else 0
+        answer = (
+            "تحليل مبدئي: "
+            f"نسبة الامتثال الحالية {stats['compliance_rate']}%، "
+            f"والفجوات المفتوحة {open_count}. "
+            "ابدأ بالضوابط not_started ثم partial مع توثيق الأدلة لكل سجل."
+        )
+        if st.session_state.gap_summary:
+            answer += f"\n\nملخص الفجوات الحالي: {st.session_state.gap_summary}"
         st.session_state.chat.append({"role": "assistant", "content": answer})
         st.rerun()
 
 
-def _api_page(client: ApiClient) -> None:
-    st.subheader("API Health")
-    if st.button("Check /api/health", type="primary"):
-        try:
-            st.json(client.health())
-        except Exception as exc:
-            st.error(str(exc))
-
-    if client.token and st.button("Run Gap Analysis"):
-        try:
-            st.json(client.gap_analysis())
-        except Exception as exc:
-            st.error(str(exc))
+def _api_page() -> None:
+    st.subheader("جاهزية المنصة")
+    st.success("المنصة تعمل الآن بتشغيل ذاتي كامل على Streamlit Cloud.")
+    st.markdown(
+        """
+- لا تحتاج API خارجي لتشغيل العرض والمراجعة.
+- الفلاتر والجداول والتحديثات تعمل مباشرة.
+- يمكنك مشاركة الرابط مع الفريق لتجربة الواجهة وتقديم الملاحظات.
+"""
+    )
 
 
 def main() -> None:
     _init_state()
     lang: Lang = st.session_state.lang
     inject_theme(lang, st.session_state.theme)
-    client = _sidebar(lang)
+    _sidebar()
 
     st.markdown(hero_html(lang), unsafe_allow_html=True)
     _top_nav(lang)
-    st.caption(t(lang, "about"))
+    st.caption("منصة امتثال سيبراني متكاملة وجاهزة للمراجعة على الإنترنت.")
 
     page = st.session_state.nav
     if page == "overview":
-        _overview(lang, client)
+        _overview(lang)
     elif page == "compliance":
-        _compliance(lang, client)
+        _compliance(lang)
     elif page == "assistant":
-        _assistant(lang, client)
+        _assistant(lang)
     else:
-        _api_page(client)
+        _api_page()
 
 
 if __name__ == "__main__":
