@@ -11,7 +11,6 @@ def inject_theme(lang: Lang, mode: str) -> None:
     dark = mode == "dark"
 
     if dark:
-        bg = "#0b1220"
         bg_grad = "linear-gradient(180deg, #0b1220 0%, #0f172a 100%)"
         card = "#111c2f"
         card_alt = "#152135"
@@ -22,8 +21,9 @@ def inject_theme(lang: Lang, mode: str) -> None:
         primary_dark = "#059669"
         hero_grad = "linear-gradient(125deg, #042f2e 0%, #064e3b 35%, #047857 100%)"
         chip = "#1e293b"
+        nav_bg = "#0f1a2e"
+        menu_hover = "rgba(16, 185, 129, 0.08)"
     else:
-        bg = "#f5f8f6"
         bg_grad = "linear-gradient(180deg, #f5f8f6 0%, #ffffff 100%)"
         card = "#ffffff"
         card_alt = "#f7faf8"
@@ -34,14 +34,27 @@ def inject_theme(lang: Lang, mode: str) -> None:
         primary_dark = "#066047"
         hero_grad = "linear-gradient(125deg, #03342a 0%, #0a7c5a 60%, #16a34a 100%)"
         chip = "#eef4f0"
+        nav_bg = "#ffffff"
+        menu_hover = "rgba(10, 124, 90, 0.08)"
 
     st.markdown(
         f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
-html, body, [class*="st"] {{
-    font-family: 'Tajawal', 'Inter', system-ui, -apple-system, sans-serif !important;
+html, body, .stApp {{
+    font-family: 'Tajawal', 'Inter', system-ui, -apple-system, sans-serif;
+}}
+.stApp p, .stApp span:not([data-testid="stIconMaterial"]):not([class*="material"]),
+.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
+.stApp button, .stApp input, .stApp textarea, .stApp label, .stApp a,
+.stApp div:not([data-testid="stIconMaterial"]) {{
+    font-family: 'Tajawal', 'Inter', system-ui, -apple-system, sans-serif;
+}}
+[data-testid="stIconMaterial"],
+.material-icons, .material-symbols-rounded, .material-symbols-outlined {{
+    font-family: 'Material Symbols Rounded', 'Material Icons', 'Material Symbols Outlined' !important;
+    font-feature-settings: 'liga' !important;
 }}
 
 .stApp {{
@@ -57,31 +70,43 @@ section[data-testid="stSidebar"] {{ display: none !important; }}
 [data-testid="collapsedControl"] {{ display: none !important; }}
 
 .block-container {{
-    padding-top: 1.2rem !important;
+    padding-top: 1rem !important;
     padding-bottom: 3rem !important;
-    max-width: 1200px;
+    padding-left: 1.6rem !important;
+    padding-right: 1.6rem !important;
+    max-width: 100% !important;
 }}
 
-/* Top navigation bar */
+/* ===== Top Navigation Bar — full width ===== */
 .topnav-wrap {{
-    background: {card};
+    background: {nav_bg};
     border: 1px solid {border};
     border-radius: 14px;
-    padding: 0.45rem 0.7rem;
-    margin: 0.6rem 0 1rem 0;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    padding: 0.55rem 0.9rem;
+    margin: 0.4rem 0 1rem 0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    position: sticky;
+    top: 0.5rem;
+    z-index: 99;
+    width: 100%;
 }}
+.topnav-wrap [data-testid="stHorizontalBlock"] {{ gap: 0.45rem !important; }}
+.topnav-wrap [data-testid="stHorizontalBlock"] {{ align-items: center; }}
+
+/* Buttons inside top nav (menu items) */
 .topnav-wrap .stButton>button {{
     border-radius: 10px !important;
     font-weight: 600 !important;
-    padding: 0.45rem 0.9rem !important;
-    border: 1px solid {border} !important;
-    background: {card_alt} !important;
+    padding: 0.42rem 0.85rem !important;
+    border: 1px solid transparent !important;
+    background: transparent !important;
     color: {text} !important;
     transition: all .18s ease;
+    white-space: nowrap !important;
 }}
 .topnav-wrap .stButton>button:hover {{
-    border-color: {primary} !important;
+    background: {menu_hover} !important;
+    border-color: {border} !important;
     color: {primary_dark} !important;
 }}
 .topnav-wrap .stButton>button[kind="primary"] {{
@@ -90,25 +115,83 @@ section[data-testid="stSidebar"] {{ display: none !important; }}
     color: #ffffff !important;
 }}
 
-/* Hero */
+/* Popover (dropdown menu) trigger */
+.topnav-wrap [data-testid="stPopover"] button {{
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+    padding: 0.42rem 0.85rem !important;
+    border: 1px solid transparent !important;
+    background: transparent !important;
+    color: {text} !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}}
+.topnav-wrap [data-testid="stPopover"] button:hover {{
+    background: {menu_hover} !important;
+    border-color: {border} !important;
+}}
+/* small chevron icon in popover trigger */
+.topnav-wrap [data-testid="stPopover"] [data-testid="stIconMaterial"] {{
+    font-size: 1.05rem !important;
+    margin: 0 0.15rem !important;
+    color: {muted} !important;
+}}
+
+/* Popover panel content (dropdown items) */
+[data-testid="stPopoverBody"] {{
+    padding: 0.4rem !important;
+    min-width: 240px;
+    background: {card} !important;
+    border: 1px solid {border} !important;
+    border-radius: 12px !important;
+    box-shadow: 0 14px 30px rgba(0,0,0,0.10) !important;
+}}
+[data-testid="stPopoverBody"] .stButton>button {{
+    width: 100% !important;
+    text-align: {align} !important;
+    border: 0 !important;
+    background: transparent !important;
+    padding: 0.55rem 0.7rem !important;
+    color: {text} !important;
+    font-weight: 500 !important;
+    border-radius: 8px !important;
+}}
+[data-testid="stPopoverBody"] .stButton>button:hover {{
+    background: {menu_hover} !important;
+    color: {primary_dark} !important;
+}}
+[data-testid="stPopoverBody"] .stButton>button[kind="primary"] {{
+    background: {menu_hover} !important;
+    color: {primary_dark} !important;
+    font-weight: 700 !important;
+}}
+[data-testid="stPopoverBody"] a {{
+    display: block;
+    padding: 0.55rem 0.7rem;
+    border-radius: 8px;
+    color: {text};
+    text-decoration: none;
+    font-weight: 500;
+}}
+[data-testid="stPopoverBody"] a:hover {{
+    background: {menu_hover};
+    color: {primary_dark};
+}}
+[data-testid="stPopoverBody"] hr {{ margin: 0.3rem 0; border-color: {border}; }}
+
+/* ===== Hero ===== */
 .hero {{
     border-radius: 18px;
-    padding: 1.4rem 1.6rem;
+    padding: 1.5rem 2rem;
     background: {hero_grad};
     color: #ffffff;
     box-shadow: 0 12px 30px rgba(0, 80, 60, 0.18);
-    margin-bottom: 1.1rem;
+    margin-bottom: 0.9rem;
+    width: 100%;
 }}
-.hero h1 {{
-    margin: 0 0 0.3rem 0;
-    font-size: 1.55rem;
-    font-weight: 800;
-}}
-.hero p {{
-    margin: 0;
-    opacity: 0.92;
-    font-size: 1rem;
-}}
+.hero h1 {{ margin: 0 0 0.3rem 0; font-size: 1.55rem; font-weight: 800; }}
+.hero p {{ margin: 0; opacity: 0.92; font-size: 1rem; }}
 .hero .badge {{
     display: inline-block;
     margin-top: 0.6rem;
@@ -116,11 +199,49 @@ section[data-testid="stSidebar"] {{ display: none !important; }}
     padding: 0.28rem 0.6rem;
     border-radius: 8px;
     font-size: 0.78rem;
-    letter-spacing: 0.02em;
     border: 1px solid rgba(255,255,255,0.22);
 }}
 
-/* Metrics */
+/* ===== Login screen ===== */
+.login-wrap {{
+    max-width: 480px;
+    margin: 2.5rem auto 0 auto;
+    background: {card};
+    border: 1px solid {border};
+    border-radius: 18px;
+    padding: 2rem 1.8rem;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.08);
+}}
+.login-logo {{
+    text-align: center;
+    margin-bottom: 1rem;
+}}
+.login-logo .icon {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px; height: 64px;
+    border-radius: 16px;
+    background: {hero_grad};
+    color: #fff;
+    font-size: 1.8rem;
+    margin-bottom: 0.6rem;
+    box-shadow: 0 8px 20px rgba(0,80,60,0.18);
+}}
+.login-logo h2 {{ margin: 0; font-size: 1.4rem; font-weight: 800; color: {text}; }}
+.login-logo p  {{ margin: 0.25rem 0 0; color: {muted}; font-size: 0.92rem; }}
+.login-demo {{
+    margin-top: 0.8rem;
+    padding: 0.7rem 0.9rem;
+    background: {card_alt};
+    border: 1px dashed {border};
+    border-radius: 10px;
+    color: {muted};
+    font-size: 0.86rem;
+}}
+.login-demo b {{ color: {text}; }}
+
+/* ===== Metrics ===== */
 [data-testid="stMetric"] {{
     background: {card};
     border: 1px solid {border};
@@ -128,13 +249,10 @@ section[data-testid="stSidebar"] {{ display: none !important; }}
     padding: 1rem 1.1rem;
     box-shadow: 0 1px 2px rgba(0,0,0,0.03);
 }}
-[data-testid="stMetricValue"] {{
-    color: {primary_dark} !important;
-    font-weight: 800 !important;
-}}
+[data-testid="stMetricValue"] {{ color: {primary_dark} !important; font-weight: 800 !important; }}
 [data-testid="stMetricLabel"] {{ color: {muted} !important; }}
 
-/* Cards/sections */
+/* ===== Sections ===== */
 .section-card {{
     background: {card};
     border: 1px solid {border};
@@ -145,11 +263,22 @@ section[data-testid="stSidebar"] {{ display: none !important; }}
 .section-title {{
     font-size: 1.05rem;
     font-weight: 700;
-    margin: 0 0 0.6rem 0;
+    margin: 0.4rem 0 0.6rem 0;
     color: {text};
 }}
+.page-title {{
+    font-size: 1.35rem;
+    font-weight: 800;
+    margin: 0 0 0.2rem 0;
+    color: {text};
+}}
+.page-caption {{
+    color: {muted};
+    margin: 0 0 1rem 0;
+    font-size: 0.95rem;
+}}
 
-/* Inputs */
+/* ===== Inputs ===== */
 [data-baseweb="input"] input,
 [data-baseweb="select"]>div,
 .stTextInput input, .stSelectbox div[data-baseweb="select"]>div {{
@@ -157,7 +286,7 @@ section[data-testid="stSidebar"] {{ display: none !important; }}
     background: {card_alt} !important;
 }}
 
-/* Chat */
+/* ===== Chat ===== */
 [data-testid="stChatMessage"] {{
     background: {card};
     border: 1px solid {border};
@@ -165,19 +294,16 @@ section[data-testid="stSidebar"] {{ display: none !important; }}
     padding: 0.85rem 1rem;
     margin: 0.4rem 0;
 }}
-.stChatInput textarea {{
-    border-radius: 12px !important;
-    background: {card_alt} !important;
-}}
+.stChatInput textarea {{ border-radius: 12px !important; background: {card_alt} !important; }}
 
-/* Dataframe */
+/* ===== Dataframe ===== */
 [data-testid="stDataFrame"] {{
     border: 1px solid {border} !important;
     border-radius: 12px;
     overflow: hidden;
 }}
 
-/* Badges */
+/* ===== Chips / badges ===== */
 .chip {{
     display: inline-block;
     padding: 0.18rem 0.5rem;
@@ -188,10 +314,10 @@ section[data-testid="stSidebar"] {{ display: none !important; }}
     border: 1px solid {border};
 }}
 .chip.success {{ color: #047857; border-color: #a7f3d0; background: #ecfdf5; }}
-.chip.warn {{ color: #92400e; border-color: #fde68a; background: #fffbeb; }}
-.chip.danger {{ color: #991b1b; border-color: #fecaca; background: #fef2f2; }}
+.chip.warn    {{ color: #92400e; border-color: #fde68a; background: #fffbeb; }}
+.chip.danger  {{ color: #991b1b; border-color: #fecaca; background: #fef2f2; }}
 
-/* Plotly container */
+/* ===== Plotly ===== */
 [data-testid="stPlotlyChart"] {{
     background: {card};
     border: 1px solid {border};
@@ -199,11 +325,11 @@ section[data-testid="stSidebar"] {{ display: none !important; }}
     padding: 0.4rem 0.5rem;
 }}
 
-/* Buttons (default outside topnav) */
+/* ===== Buttons / Downloads ===== */
 .stButton>button {{ border-radius: 10px !important; font-weight: 600 !important; }}
-.stDownloadButton>button {{ border-radius: 10px !important; }}
+.stDownloadButton>button {{ border-radius: 10px !important; font-weight: 600 !important; }}
 
-/* Status bar */
+/* ===== Status bar ===== */
 .status-bar {{
     display: flex;
     justify-content: space-between;
@@ -215,6 +341,38 @@ section[data-testid="stSidebar"] {{ display: none !important; }}
     color: {muted};
     font-size: 0.85rem;
     margin-bottom: 0.8rem;
+}}
+
+/* ===== Link cards (for the Links menu page) ===== */
+.link-card {{
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    background: {card};
+    border: 1px solid {border};
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+    margin: 0.4rem 0;
+    transition: all .15s ease;
+    text-decoration: none !important;
+    color: {text} !important;
+}}
+.link-card:hover {{
+    transform: translateY(-1px);
+    border-color: {primary};
+    box-shadow: 0 8px 18px rgba(10, 124, 90, 0.12);
+}}
+.link-card .lc-title {{ font-weight: 700; color: {text}; }}
+.link-card .lc-desc  {{ font-size: 0.86rem; color: {muted}; }}
+
+/* ===== Footer ===== */
+.app-footer {{
+    margin-top: 2rem;
+    padding: 0.9rem 1rem;
+    border-top: 1px solid {border};
+    color: {muted};
+    font-size: 0.82rem;
+    text-align: center;
 }}
 </style>
 """,
