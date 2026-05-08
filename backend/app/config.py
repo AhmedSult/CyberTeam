@@ -49,6 +49,9 @@ class Settings(BaseSettings):
         if v is None:
             return None
         s = str(v).strip()
+        # أحياناً يُنسخ المفتاح داخل علامات تنصيص في .env
+        if len(s) >= 2 and ((s[0] == s[-1] == '"') or (s[0] == s[-1] == "'")):
+            s = s[1:-1].strip()
         return s if s else None
 
     @field_validator("ai_sa_cyber_context_extra", mode="before")

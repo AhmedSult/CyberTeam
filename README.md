@@ -5,7 +5,7 @@
 ## المتطلبات
 
 - Python 3.12+
-- Node.js 20+
+- (اختياري) Node.js فقط إذا أردت تشغيل الواجهة القديمة في `frontend/`
 
 ## تشغيل الخادم (API)
 
@@ -21,15 +21,18 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 - وثائق تفاعلية: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - مستخدم تجريبي: `admin@example.com` / `admin123`
 
-## تشغيل الواجهة (عربي RTL)
+## تشغيل الواجهة الرئيسية (Streamlit — بنمط DHWO)
 
 ```bash
-cd frontend
-npm install
-npm run dev
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+streamlit run streamlit_app.py
 ```
 
-افتح [http://127.0.0.1:5173](http://127.0.0.1:5173) — الطلبات إلى `/api` تُوجَّه تلقائياً إلى المنفذ 8000.
+افتح [http://127.0.0.1:8501](http://127.0.0.1:8501)
+
+> واجهة Streamlit أصبحت المسار الأساسي للتشغيل المحلي والنشر.
 
 ## ما يتضمنه المشروع
 
@@ -45,22 +48,38 @@ npm run dev
 ## هيكل المجلدات
 
 - `backend/app` — FastAPI، SQLAlchemy، خدمة AI
-- `frontend/src` — React + Vite، واجهة عربية
+- `app.py` — تطبيق Streamlit الرئيسي
+- `streamlit_app.py` — نقطة دخول Streamlit Cloud
+- `cyber_observatory/` — طبقة الواجهة (theme / i18n / client / demo)
+- `frontend/src` — واجهة قديمة (Legacy)
 
-## النشر على Streamlit Cloud
+## النشر على Streamlit Cloud (بنمط DHWO)
 
-Streamlit يشغّل **ملف Python واحد** من الجذر، وليس FastAPI + React معاً.
+تمت إضافة نسخة Streamlit موحدة بهيكل modular مشابه لتقنيات مشروع DHWO:
 
-- **ملف الدخول:** `streamlit_app.py` (في جذر المستودع)
-- **التبعيات:** `requirements.txt` في الجذر (خاص بـ Streamlit)
-- في لوحة Streamlit: **Main file path** = `streamlit_app.py`
-- (اختياري) بعد نشر الـ API على Render وغيره: في **Secrets** أضف `API_URL = "https://...."` ثم استخدم «فحص /api/health» من الشريط الجانبي
+- **نقطة التشغيل الأساسية:** `app.py`
+- **نقطة دخول السحابة:** `streamlit_app.py` (تستدعي `app.main()`)
+- **الوحدات المساعدة:** `cyber_observatory/` (تقسيم `theme` + `i18n` + `client` + `demo_data`)
+
+إعداد Streamlit Cloud:
+
+- **Main file path:** `streamlit_app.py`
+- **requirements:** `requirements.txt` في الجذر
+- (اختياري) لإحضار البيانات الحية من الـ backend أضف في Secrets:
+  - `API_URL = "https://...."`
+
+محتوى النسخة الجديدة:
+
+- تنقل علوي متعدد الصفحات (Overview / Compliance / Assistant / API)
+- واجهة RTL محسّنة وثيم light/dark
+- ربط مباشر مع API (تسجيل دخول JWT + Dashboard stats + Gap analysis + AI chat)
+- وضع تجريبي fallback عند غياب الاتصال بالخادم
 
 للنسخة الكاملة (واجهة + API + قاعدة بيانات) استخدم Render / Railway / VPS أو Docker — انظر أقسام التشغيل أعلاه.
 
-## نشر الموقع الكامل (واجهة + API) على الإنترنت
+## نشر الموقع الكامل (واجهة Streamlit + API)
 
-المشروع **FastAPI + React** — يمكن تشغيله كموقع واحد عبر Docker أو منصة تدعم حاويات.
+المشروع يعتمد الآن على **Streamlit + FastAPI** كمسار رئيسي.
 
 ### خيار Docker (موصى به للبداية)
 
@@ -74,7 +93,9 @@ docker run -p 8000:8000 \
   draya-cyber
 ```
 
-ثم افتح `http://localhost:8000` — الواجهة والـ API على نفس العنوان.
+ثم:
+- افتح الـ API على `http://localhost:8000`
+- وشغّل Streamlit منفصلًا من الجذر: `streamlit run streamlit_app.py`
 
 ### Render.com (مجاني محدود)
 
@@ -88,5 +109,6 @@ docker run -p 8000:8000 \
 
 ### ملاحظات
 
-- **Streamlit** (`streamlit_app.py`) للمعاينة السريعة فقط؛ **ليس** هو الواجهة الرئيسية للمنصة.
-- إذا فصلت الواجهة عن الـ API على نطاقين مختلفين، عيّن `CORS_ORIGINS` في إعدادات الخادم (انظر `backend/.env.example`).
+- **Streamlit (`streamlit_app.py`) هو الواجهة الرئيسية الحالية**.
+- مجلد `frontend/` موجود كنسخة Legacy للرجوع إليه فقط، وليس مسار التشغيل الافتراضي.
+- إذا فصلت Streamlit عن الـ API على نطاقين مختلفين، عيّن `CORS_ORIGINS` في إعدادات الخادم (انظر `backend/.env.example`).

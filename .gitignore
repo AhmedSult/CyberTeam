@@ -1,0 +1,17 @@
+# Python cache / bytecode
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+backend/.venv/
+
+# Environment files
+.env
+backend/.env
+
+# Local build artifacts
+.DS_Store
+*.log
+
