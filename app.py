@@ -69,6 +69,14 @@ def _filter_controls_records() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, fl
     departments = st.session_state.departments_df.copy()
     frameworks = st.session_state.frameworks_df.copy()
 
+    # Avoid merge collisions on generic columns like id/name_ar.
+    controls = controls.rename(columns={"id": "control_pk"})
+    records = records.rename(columns={"id": "record_id"})
+    departments = departments.rename(
+        columns={"id": "department_pk", "name_ar": "department_name_ar", "code": "department_code"}
+    )
+    frameworks = frameworks.rename(columns={"id": "framework_pk", "name_ar": "framework_name_ar"})
+
     if st.session_state.framework_id:
         fw = int(st.session_state.framework_id)
         controls = controls[controls["framework_id"] == fw]
@@ -76,11 +84,19 @@ def _filter_controls_records() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, fl
         dept = int(st.session_state.department_id)
         records = records[records["department_id"] == dept]
 
-    merged = records.merge(controls, left_on="control_id", right_on="id", how="left")
-    merged = merged.merge(departments[["id", "name_ar", "code"]], left_on="department_id", right_on="id", how="left")
-    merged = merged.rename(columns={"name_ar": "department_name_ar", "code": "department_code"})
-    merged = merged.merge(frameworks[["id", "name_ar"]], left_on="framework_id", right_on="id", how="left")
-    merged = merged.rename(columns={"name_ar": "framework_name_ar"})
+    merged = records.merge(controls, left_on="control_id", right_on="control_pk", how="left")
+    merged = merged.merge(
+        departments[["department_pk", "department_name_ar", "department_code"]],
+        left_on="department_id",
+        right_on="department_pk",
+        how="left",
+    )
+    merged = merged.merge(
+        frameworks[["framework_pk", "framework_name_ar"]],
+        left_on="framework_id",
+        right_on="framework_pk",
+        how="left",
+    )
     if st.session_state.table_search and not merged.empty:
         q = st.session_state.table_search.strip().lower()
         mask = merged.astype(str).apply(lambda s: s.str.lower().str.contains(q, na=False))
@@ -134,7 +150,7 @@ def _compliance(lang: Lang) -> None:
 
     controls, merged, _ = _filter_controls_records()
     show_cols = [
-        "id_x",
+        "record_id",
         "control_ref",
         "title_ar",
         "domain_ar",
@@ -146,11 +162,11 @@ def _compliance(lang: Lang) -> None:
     available_cols = [c for c in show_cols if c in merged.columns]
     st.dataframe(merged[available_cols], use_container_width=True, hide_index=True)
 
-    if not merged.empty and "id_x" in merged.columns:
+    if not merged.empty and "record_id" in merged.columns:
         st.markdown("### تحديث حالة سجل")
         r1, r2, r3 = st.columns(3)
         with r1:
-            rec_id = st.selectbox("رقم السجل", options=[int(x) for x in merged["id_x"].dropna().tolist()])
+            rec_id = st.selectbox("رقم السجل", options=[int(x) for x in merged["record_id"].dropna().tolist()])
         with r2:
             new_status = st.selectbox("الحالة الجديدة", options=["not_started", "partial", "compliant", "not_applicable"])
         with r3:
@@ -213,7 +229,12 @@ def _compliance(lang: Lang) -> None:
         else:
             df = st.session_state.departments_df.copy()
             nxt = int(df["id"].max()) + 1 if not df.empty else 1
-            df.loc[len(df)] = {"id": nxt, "code": dep_code.strip() or None, "name_ar": dep_ar.strip()}
+            df.loc[len(df)] = {
+                "id": nxt,
+                "code": dep_code.strip() or None,
+                "name_ar": dep_ar.strip(),
+                "name_en": dep_en.strip(),
+            }
             st.session_state.departments_df = df
             st.success("تمت الإضافة.")
 
