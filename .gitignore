@@ -11,3 +11,10 @@ venv/
 *.log
 .idea/
 .vscode/
+
+# Local SQLite database (per-deployment data)
+data/
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
