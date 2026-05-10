@@ -1446,6 +1446,30 @@ details.scan-quick-exploit .impact-note {{
     color: var(--cb-info-text) !important;
 }}
 
+/* Horizontal section nav (st.radio) — match tab pill style */
+.vm-platform [data-testid="stRadio"] [role="radiogroup"] {{
+    background: var(--cb-surface) !important;
+    border-radius: 10px !important;
+    padding: 4px !important;
+    border: 1px solid var(--cb-border) !important;
+    gap: 4px !important;
+    flex-wrap: wrap !important;
+}}
+.vm-platform [data-testid="stRadio"] [role="radiogroup"] label {{
+    border-radius: 8px !important;
+    padding: 8px 14px !important;
+    margin: 0 !important;
+    font-weight: 600 !important;
+    color: var(--cb-text-2) !important;
+    border: 1px solid transparent !important;
+    background: transparent !important;
+}}
+.vm-platform [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) {{
+    background: var(--cb-info-bg) !important;
+    color: var(--cb-info-text) !important;
+    border-color: var(--cb-info-border) !important;
+}}
+
 /* AI insight box */
 .vm-ai-card {{
     background: linear-gradient(135deg, #F7F6F2 0%, #E6F1FB 100%);

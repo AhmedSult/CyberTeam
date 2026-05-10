@@ -136,6 +136,30 @@ def _gen_token() -> str:
     return "cybershield-verify-" + secrets.token_hex(8)
 
 
+def require_domain_verification() -> bool:
+    """If True, only domains marked *verified* can be scanned.
+
+    **Default: False** — يمكن الفحص مبعد إضافة الموقع دون إثبات ملكية.
+    للإنتاج أو الاستخدام العام اضبط ``REQUIRE_DOMAIN_VERIFICATION = true``
+    في ``.streamlit/secrets.toml`` أو
+    ``CYBERSHIELD_REQUIRE_DOMAIN_VERIFICATION=true`` في البيئة.
+    """
+    import os
+
+    ev = os.environ.get("CYBERSHIELD_REQUIRE_DOMAIN_VERIFICATION", "").strip().lower()
+    if ev in ("0", "false", "no", "off"):
+        return False
+    if ev in ("1", "true", "yes", "on"):
+        return True
+    try:
+        val = st.secrets["REQUIRE_DOMAIN_VERIFICATION"]
+    except Exception:
+        return False
+    if isinstance(val, str):
+        return val.strip().lower() not in ("0", "false", "no", "off")
+    return bool(val)
+
+
 # =========================================================================
 #  State init (clean slate — no demo data)
 # =========================================================================

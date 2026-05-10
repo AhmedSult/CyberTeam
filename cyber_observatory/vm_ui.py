@@ -75,6 +75,14 @@ def _domain_label(d: dict) -> str:
     return f'{d["domain"]} ({d["environment"]})'
 
 
+def _domain_label_scan(d: dict, lang: Lang) -> str:
+    """Label in scan target picker; flags unverified when trial mode allows them."""
+    base = _domain_label(d)
+    if not vm_data.require_domain_verification() and not d.get("verified"):
+        return f"{base} · {t(lang, 'vm_unverified')}"
+    return base
+
+
 # =========================================================================
 #  Top banner with role + notifications
 # =========================================================================
@@ -409,6 +417,11 @@ def render_sites(lang: Lang) -> None:
     with cols[1]:
         _render_quota(t(lang, "vm_quota_scans"), used_s, lim_s)
 
+    if not vm_data.require_domain_verification():
+        st.info(t(lang, "vm_trial_scan_without_verify"))
+    else:
+        st.warning(t(lang, "vm_verify_required_banner"))
+
     can_add = user["role"] in (vm_data.ROLE_SUPER, vm_data.ROLE_COMPANY)
     if can_add and used_d < lim_d:
         with st.expander(t(lang, "vm_add_domain"), expanded=False):
@@ -455,6 +468,7 @@ def _render_quota(label: str, used: int, limit: int) -> None:
 
 def _render_domain_card(d: dict, lang: Lang, user: dict) -> None:
     verified = d["verified"]
+    req_v = vm_data.require_domain_verification()
     tag_cls = "success" if verified else "warn"
     tag_label = t(lang, "vm_verified" if verified else "vm_unverified")
     tag_chips = "".join(f'<span class="vm-tag neutral">{_esc(x)}</span>' for x in d.get("tags", []))
@@ -475,7 +489,8 @@ def _render_domain_card(d: dict, lang: Lang, user: dict) -> None:
 
     can_manage = user["role"] in (vm_data.ROLE_SUPER, vm_data.ROLE_COMPANY)
     cols = st.columns([1, 1, 1, 2])
-    if not verified:
+    # بدون إلزام التحقق: فحص مباشر من البطاقة. مع الإلزام: تحقق أولاً ثم يظهر الفحص.
+    if req_v and not verified:
         if cols[0].button(t(lang, "vm_verify"), key=f"vrf_{d['id']}",
                           use_container_width=True):
             st.session_state[f"vm_show_verify_{d['id']}"] = True
@@ -483,7 +498,7 @@ def _render_domain_card(d: dict, lang: Lang, user: dict) -> None:
         if cols[0].button(t(lang, "vm_run_scan"), key=f"scan_{d['id']}",
                           type="primary", use_container_width=True):
             st.session_state.vm_scan_target_id = d["id"]
-            st.session_state.vm_active_section = "scans"
+            st.session_state.vm_pending_platform_tab = "scans"
             st.rerun()
 
     if can_manage and cols[1].button(t(lang, "vm_delete"), key=f"del_{d['id']}",
@@ -492,7 +507,7 @@ def _render_domain_card(d: dict, lang: Lang, user: dict) -> None:
         st.warning(f"تم حذف {d['domain']}")
         st.rerun()
 
-    if st.session_state.get(f"vm_show_verify_{d['id']}"):
+    if req_v and st.session_state.get(f"vm_show_verify_{d['id']}"):
         _render_verification_panel(d, lang, user)
 
 
@@ -554,16 +569,31 @@ def render_scans(lang: Lang, run_scan_fn) -> None:
     st.markdown(f'<div class="vm-section-title">{t(lang, "vm_section_scans")}</div>',
                 unsafe_allow_html=True)
 
-    domains = [d for d in vm_data.company_domains(company["id"]) if d["verified"]]
+    ok_flash = st.session_state.pop("vm_scan_flash_ok", None)
+    err_flash = st.session_state.pop("vm_scan_flash_err", None)
+    if ok_flash:
+        st.success(ok_flash)
+    if err_flash:
+        st.error(err_flash)
+
+    if vm_data.require_domain_verification():
+        domains = [d for d in vm_data.company_domains(company["id"]) if d["verified"]]
+        empty_msg = t(lang, "vm_no_verified_targets")
+    else:
+        domains = list(vm_data.company_domains(company["id"]))
+        empty_msg = t(lang, "vm_no_domains")
+
     if not domains:
-        st.markdown(f'<div class="vm-empty">{t(lang, "vm_no_verified_targets")}</div>',
+        st.markdown(f'<div class="vm-empty">{empty_msg}</div>',
                     unsafe_allow_html=True)
     else:
         cols = st.columns([2, 1, 1, 1])
         target_id = cols[0].selectbox(
             t(lang, "vm_select_target"),
             options=[d["id"] for d in domains],
-            format_func=lambda i: _domain_label(next(d for d in domains if d["id"] == i)),
+            format_func=lambda i: _domain_label_scan(
+                next(d for d in domains if d["id"] == i), lang,
+            ),
             key="vm_scan_target_id",
         )
         scan_type = cols[1].selectbox(
@@ -586,18 +616,28 @@ def render_scans(lang: Lang, run_scan_fn) -> None:
             st.caption(f"⚠️ هذا النوع غير متاح في باقة «{vm_data.PLAN_LABELS_AR[plan]}».")
 
         run_disabled = (not engine_avail) or (not type_avail)
-        if cols[3].button(t(lang, "vm_run_scan"), type="primary",
-                          use_container_width=True, disabled=run_disabled):
+        if cols[3].button(
+            t(lang, "vm_run_scan"),
+            type="primary",
+            use_container_width=True,
+            disabled=run_disabled,
+            key="vm_run_scan_main",
+        ):
             d = vm_data.get_domain(target_id)
             with st.spinner(t(lang, "scanner_running")):
                 started = datetime.now().isoformat(timespec="seconds")
                 try:
                     result = run_scan_fn(d["domain"])
                     vm_data.record_scan(d["id"], scan_type, result, started, user["id"])
-                    st.success(f"تمّ الفحص. الدرجة: {result['score']['score']} · {result['score']['grade']}")
+                    st.session_state.vm_scan_flash_ok = t(lang, "vm_scan_done").format(
+                        score=result["score"]["score"], grade=result["score"]["grade"]
+                    )
                     st.session_state.vm_last_scan_url = result["url"]
                 except Exception as exc:
-                    st.error(f"فشل الفحص: {exc}")
+                    st.session_state.vm_scan_flash_err = t(lang, "vm_scan_failed").format(
+                        error=str(exc)
+                    )
+            st.rerun()
 
     st.markdown('<div class="vm-divider"></div>', unsafe_allow_html=True)
     st.markdown(f'<div class="vm-section-title">{t(lang, "vm_scan_history")}</div>',

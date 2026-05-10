@@ -1888,35 +1888,57 @@ def _page_scanner(lang: Lang) -> None:
     if is_super:
         section_keys.append(("admin", "vm_section_admin"))
 
-    tabs = st.tabs([t(lang, k) for (_, k) in section_keys])
-    for (sect_id, _), tab in zip(section_keys, tabs):
-        with tab:
-            if sect_id == "dashboard":
-                vm_ui.render_dashboard(lang)
-            elif sect_id == "sites":
-                vm_ui.render_sites(lang)
-            elif sect_id == "scans":
-                vm_ui.render_scans(lang, _vm_run_scan)
-            elif sect_id == "vulns":
-                vm_ui.render_vulns(lang, _vm_ai_explain_vuln)
-            elif sect_id == "pentester":
-                vm_ui.render_ai_pentester(
-                    lang, _vm_ai_pentest_plan, has_api_key=bool(_resolve_api_key()),
-                )
-            elif sect_id == "codereview":
-                vm_ui.render_code_review(
-                    lang, _vm_ai_code_review, has_api_key=bool(_resolve_api_key()),
-                )
-            elif sect_id == "reports":
-                vm_ui.render_reports(lang, _vm_ai_summary)
-            elif sect_id == "team":
-                vm_ui.render_team(lang)
-            elif sect_id == "subs":
-                vm_ui.render_subscription(lang)
-            elif sect_id == "audit":
-                vm_ui.render_audit(lang)
-            elif sect_id == "admin":
-                vm_ui.render_admin(lang)
+    ids = [sid for sid, _ in section_keys]
+    id_to_lk = {sid: lk for sid, lk in section_keys}
+
+    if "vm_platform_tab" not in st.session_state:
+        st.session_state.vm_platform_tab = "dashboard"
+    elif st.session_state.vm_platform_tab not in ids:
+        st.session_state.vm_platform_tab = "dashboard"
+
+    # Programmatic nav (e.g. Sites → Run scan): apply before st.radio — cannot
+    # assign vm_platform_tab after the widget with that key is instantiated.
+    _pending_tab = st.session_state.pop("vm_pending_platform_tab", None)
+    if _pending_tab in ids:
+        st.session_state.vm_platform_tab = _pending_tab
+
+    st.radio(
+        "vm_platform_nav",
+        options=ids,
+        format_func=lambda i: t(lang, id_to_lk[i]),
+        horizontal=True,
+        key="vm_platform_tab",
+        label_visibility="collapsed",
+    )
+
+    choice = st.session_state.vm_platform_tab
+
+    if choice == "dashboard":
+        vm_ui.render_dashboard(lang)
+    elif choice == "sites":
+        vm_ui.render_sites(lang)
+    elif choice == "scans":
+        vm_ui.render_scans(lang, _vm_run_scan)
+    elif choice == "vulns":
+        vm_ui.render_vulns(lang, _vm_ai_explain_vuln)
+    elif choice == "pentester":
+        vm_ui.render_ai_pentester(
+            lang, _vm_ai_pentest_plan, has_api_key=bool(_resolve_api_key()),
+        )
+    elif choice == "codereview":
+        vm_ui.render_code_review(
+            lang, _vm_ai_code_review, has_api_key=bool(_resolve_api_key()),
+        )
+    elif choice == "reports":
+        vm_ui.render_reports(lang, _vm_ai_summary)
+    elif choice == "team":
+        vm_ui.render_team(lang)
+    elif choice == "subs":
+        vm_ui.render_subscription(lang)
+    elif choice == "audit":
+        vm_ui.render_audit(lang)
+    elif choice == "admin":
+        vm_ui.render_admin(lang)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
