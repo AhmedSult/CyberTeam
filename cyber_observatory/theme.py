@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import html as html_module
+
 from cyber_observatory.i18n import Lang, t
 
 
@@ -221,6 +223,30 @@ section[data-testid="stSidebar"] {{ display: none !important; }}
     margin-bottom: 0.9rem;
     width: 100%;
 }}
+.hero-row {{
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}}
+.hero-text {{ flex: 1 1 280px; min-width: 0; }}
+.hero-user-wrap {{ flex-shrink: 0; }}
+.hero-user-chip {{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.28);
+    padding: 0.38rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}}
 .hero h1 {{ margin: 0 0 0.3rem 0; font-size: 1.55rem; font-weight: 800; }}
 .hero p {{ margin: 0; opacity: 0.92; font-size: 1rem; }}
 .hero .badge {{
@@ -271,6 +297,98 @@ section[data-testid="stSidebar"] {{ display: none !important; }}
     font-size: 0.86rem;
 }}
 .login-demo b {{ color: {text}; }}
+
+/* ----- Login page (hero + form column card) ----- */
+.login-top-bar {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin: 0 0 0.35rem 0;
+    padding: 0.2rem 0 0.55rem 0;
+    border-bottom: 1px solid {border};
+}}
+.login-brand-mini {{
+    font-weight: 800;
+    font-size: 1.06rem;
+    color: {text};
+    letter-spacing: -0.02em;
+}}
+.login-hero-banner {{
+    border-radius: 20px;
+    padding: 2rem 1.75rem 2.4rem;
+    background: {hero_grad};
+    color: #fff;
+    margin: 0.45rem 0 0 0;
+    box-shadow: 0 14px 38px rgba(0, 80, 60, 0.2);
+    position: relative;
+    overflow: hidden;
+}}
+.login-hero-banner::before {{
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse 70% 55% at 15% 85%, rgba(255,255,255,0.14) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 45% at 90% 15%, rgba(255,255,255,0.1) 0%, transparent 50%);
+    pointer-events: none;
+}}
+.login-hero-inner {{ position: relative; z-index: 1; max-width: 640px; }}
+.login-hero-banner h1 {{
+    margin: 0 0 0.3rem 0;
+    font-size: clamp(1.35rem, 3.5vw, 1.75rem);
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+}}
+.login-hero-banner p.login-tagline {{
+    margin: 0 0 1rem 0;
+    opacity: 0.95;
+    font-size: 0.96rem;
+    line-height: 1.65;
+}}
+.login-hero-features {{
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.42rem;
+}}
+.login-hero-features li {{
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.88rem;
+    opacity: 0.96;
+    line-height: 1.45;
+}}
+.login-hero-features .feat-ico {{ flex-shrink: 0; opacity: 0.95; font-size: 1rem; }}
+
+.block-container:has(.login-hero-banner) {{
+    padding-top: 0.65rem !important;
+}}
+
+.block-container:has(.login-hero-banner) [data-testid="stHorizontalBlock"] [data-testid="column"]:has([data-testid="stForm"]) {{
+    background: {card};
+    border: 1px solid {border};
+    border-radius: 18px;
+    padding: 1.5rem 1.35rem 1.2rem;
+    box-shadow: 0 18px 44px rgba(0,0,0,0.09);
+    margin-top: 0.85rem;
+}}
+.block-container:has(.login-hero-banner) [data-testid="stForm"] {{
+    border: none !important;
+    padding: 0 !important;
+    background: transparent !important;
+}}
+.block-container:has(.login-hero-banner) [data-testid="stForm"] [data-testid="stFormSubmitButton"]>button {{
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+    padding: 0.55rem 1rem !important;
+    min-height: 2.65rem;
+}}
 
 /* ===== Metrics ===== */
 [data-testid="stMetric"] {{
@@ -636,6 +754,55 @@ details.scan-domain .dom-meta {{
     font-size: 11px;
     font-weight: 600;
     direction: ltr;
+}}
+
+/* قابل للطي دون st.expander (يعمل داخل expander الفحص السريع) */
+details.scan-quick-exploit {{
+    margin: 10px 0;
+    border: 1px solid var(--s-border-2);
+    border-radius: 12px;
+    background: var(--s-surface);
+    padding: 6px 12px 10px;
+}}
+details.scan-quick-exploit summary {{
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--s-text-1);
+    padding: 6px 2px;
+    list-style-position: outside;
+}}
+details.scan-quick-exploit .scan-quick-body {{
+    margin-top: 8px;
+    padding-top: 10px;
+    border-top: 1px solid var(--s-border-2);
+    font-size: 13px;
+    color: var(--s-text-2);
+    line-height: 1.7;
+}}
+details.scan-quick-exploit .scan-quick-body strong {{
+    color: var(--s-text-1);
+}}
+details.scan-quick-exploit pre {{
+    margin: 8px 0 0 0;
+    background: #2C2C2A;
+    color: #F7F6F2;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    direction: ltr;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 280px;
+    overflow: auto;
+}}
+details.scan-quick-exploit .impact-note {{
+    background: var(--s-info-bg);
+    color: var(--s-info-text);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 8px 0;
+    font-size: 13px;
 }}
 
 .scan-empty {{
@@ -1307,12 +1474,24 @@ details.scan-domain .dom-meta {{
     )
 
 
-def hero_html(lang: Lang) -> str:
+def hero_html(lang: Lang, username: str = "") -> str:
     badge = "Cybersecurity Compliance · NCA · ECC" if lang == "en" else "امتثال سيبراني · NCA · ECC"
+    user_block = ""
+    if username:
+        safe = html_module.escape(str(username))
+        user_block = (
+            f'<div class="hero-user-wrap"><span class="hero-user-chip" '
+            f'title="{safe}">👤 {safe}</span></div>'
+        )
     return f"""
 <section class="hero">
-  <h1>{t(lang, "title")}</h1>
-  <p>{t(lang, "subtitle")}</p>
-  <span class="badge">{badge}</span>
+  <div class="hero-row">
+    <div class="hero-text">
+      <h1>{t(lang, "title")}</h1>
+      <p>{t(lang, "subtitle")}</p>
+      <span class="badge">{badge}</span>
+    </div>
+    {user_block}
+  </div>
 </section>
 """

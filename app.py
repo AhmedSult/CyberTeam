@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import io
 import os
 from datetime import date, datetime
@@ -156,51 +157,88 @@ def _audit(action: str, entity: str, entity_id: int | str, details: str) -> None
 # =========================================================================
 #  Login
 # =========================================================================
-def _login_page(lang: Lang) -> None:
-    st.markdown('<div class="login-wrap">', unsafe_allow_html=True)
+def _login_page() -> None:
+    """شاشة دخول بصريّة مع شريط تفضيلات خارج النموذج (اللغة/السمة تُطبّق فوراً)."""
+    lang = st.session_state.lang  # يقرأ القيمة الحالية بعد تغيير الـ selectbox
+
+    tb1, tb2, tb3 = st.columns([2.2, 1.35, 1.5])
+    with tb1:
+        st.markdown(
+            f'<div class="login-brand-mini">🛡️ {html.escape(t(lang, "title"))}</div>',
+            unsafe_allow_html=True,
+        )
+    with tb2:
+        st.selectbox(
+            t(lang, "language"),
+            options=["ar", "en"],
+            key="lang",
+            format_func=lambda v: "العربية" if v == "ar" else "English",
+        )
+    with tb3:
+        st.radio(
+            t(lang, "theme_label"),
+            options=["light", "dark"],
+            key="theme",
+            horizontal=True,
+            format_func=lambda v: (
+                ("☀️ فاتح" if lang == "ar" else "☀️ Light")
+                if v == "light"
+                else ("🌙 داكن" if lang == "ar" else "🌙 Dark")
+            ),
+        )
+    st.caption(t(lang, "login_prefs_hint"))
+
     st.markdown(
         f"""
-<div class="login-logo">
-  <div class="icon">🛡️</div>
-  <h2>{t(lang, "title")}</h2>
-  <p>{t(lang, "login_caption")}</p>
-</div>
+<section class="login-hero-banner">
+  <div class="login-hero-inner">
+    <h1>{html.escape(t(lang, "title"))}</h1>
+    <p class="login-tagline">{html.escape(t(lang, "subtitle"))}</p>
+    <ul class="login-hero-features">
+      <li><span class="feat-ico">🛰️</span><span>{html.escape(t(lang, "login_feature_secure"))}</span></li>
+      <li><span class="feat-ico">📋</span><span>{html.escape(t(lang, "login_feature_compliance"))}</span></li>
+      <li><span class="feat-ico">🤖</span><span>{html.escape(t(lang, "login_feature_ai"))}</span></li>
+    </ul>
+  </div>
+</section>
 """,
         unsafe_allow_html=True,
     )
-    with st.form("login_form", clear_on_submit=False):
-        email = st.text_input(t(lang, "login_email"), key="login_email")
-        password = st.text_input(t(lang, "login_password"), type="password", key="login_password")
-        c1, c2 = st.columns([1, 1])
-        with c1:
-            st.checkbox(t(lang, "login_remember"), value=True, key="login_remember")
-        with c2:
-            st.selectbox(
-                t(lang, "language"),
-                options=["ar", "en"],
-                key="lang",
-                format_func=lambda v: "العربية" if v == "ar" else "English",
+
+    _, mid, _ = st.columns([1, 1.28, 1])
+    with mid:
+        st.markdown(f"### {t(lang, 'login_title')}")
+        st.caption(t(lang, "login_caption"))
+        with st.form("login_form", clear_on_submit=False):
+            email = st.text_input(t(lang, "login_email"), key="login_email")
+            password = st.text_input(
+                t(lang, "login_password"), type="password", key="login_password"
             )
-        submitted = st.form_submit_button(t(lang, "login_submit"), type="primary", use_container_width=True)
-        if submitted:
-            uid = (email or "").strip().lower()
-            ok = uid in DEMO_USERS and DEMO_USERS[uid] == (password or "")
-            if ok:
-                st.session_state.authenticated = True
-                st.session_state.user = uid
-                st.session_state.nav = "overview"
-                st.query_params["u"] = uid
-                st.query_params["p"] = "overview"
-                st.query_params["l"] = st.session_state.lang
-                _audit("login", "user", uid, "تسجيل دخول ناجح")
-                st.rerun()
-            else:
-                st.error(t(lang, "login_invalid"))
-    st.markdown(
-        f'<div class="login-demo"><b>{t(lang, "login_demo")}:</b> {t(lang, "login_demo_value")}</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
+            st.checkbox(t(lang, "login_remember"), value=True, key="login_remember")
+            submitted = st.form_submit_button(
+                t(lang, "login_submit"), type="primary", use_container_width=True
+            )
+            if submitted:
+                uid = (email or "").strip().lower()
+                ok = uid in DEMO_USERS and DEMO_USERS[uid] == (password or "")
+                if ok:
+                    st.session_state.authenticated = True
+                    st.session_state.user = uid
+                    st.session_state.nav = "overview"
+                    st.query_params["u"] = uid
+                    st.query_params["p"] = "overview"
+                    st.query_params["l"] = st.session_state.lang
+                    _audit("login", "user", uid, "تسجيل دخول ناجح")
+                    st.rerun()
+                else:
+                    st.error(t(lang, "login_invalid"))
+
+        st.markdown(
+            f'<div class="login-demo"><b>{html.escape(t(lang, "login_demo"))}:</b> '
+            f'{html.escape(t(lang, "login_demo_value"))}</div>',
+            unsafe_allow_html=True,
+        )
+        st.caption(t(lang, "login_footer_hint"))
 
 
 # =========================================================================
@@ -1629,7 +1667,11 @@ def _vm_ai_code_review(code: str, language: str, filename: str, lang: Lang) -> d
 
 
 def _render_quick_exploits(result: dict, lang: Lang) -> None:
-    """Show 'why vuln + how exploited' for each finding in the quick scan view."""
+    """Show 'why vuln + how exploited' for each finding in the quick scan view.
+
+    Uses HTML <details> instead of st.expander — Streamlit forbids nested expanders
+    (quick scan lives inside st.expander).
+    """
     sev_rank = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4, "ok": 5}
     findings = sorted(
         [f for f in result.get("findings", [])
@@ -1642,37 +1684,64 @@ def _render_quick_exploits(result: dict, lang: Lang) -> None:
     st.markdown(f"#### {t(lang, 'vm_how_exploit')}")
     st.warning(t(lang, "vm_disclaimer_exploit"))
 
+    blocks: list[str] = []
     for f in findings:
-        title = f.get("title", "—")
+        title = html.escape(str(f.get("title", "—")))
         sev = f.get("severity", "info")
-        sev_label = t(lang, f"vm_{sev}")
-        with st.expander(f"[{sev_label}] {title}", expanded=False):
-            impact = f.get("impact") or ""
-            if impact:
-                st.markdown(f"**{t(lang, 'vm_why_vuln')}**")
-                st.info(impact)
+        sev_label = html.escape(t(lang, f"vm_{sev}"))
+        summary_line = f"[{sev_label}] {title}"
 
-            summary = f.get("attack_summary") or ""
-            steps = f.get("attack_steps") or []
-            codes = f.get("attack_code") or []
+        body_parts: list[str] = []
+        impact = f.get("impact") or ""
+        if impact:
+            body_parts.append(
+                f"<p><strong>{html.escape(t(lang, 'vm_why_vuln'))}</strong></p>"
+                f'<div class="impact-note">{html.escape(str(impact))}</div>'
+            )
 
-            if summary:
-                st.markdown(f"**{t(lang, 'vm_attack_summary')}:** {summary}")
-            if steps:
-                st.markdown(f"**{t(lang, 'vm_attack_steps')}:**")
-                for i, s in enumerate(steps, 1):
-                    st.markdown(f"{i}. {s}")
-            if codes:
-                st.markdown(f"**{t(lang, 'vm_attack_code')}:**")
-                for snippet in codes:
-                    st.markdown(f"`{snippet.get('label', 'code')}`")
-                    st.code(snippet.get("code", ""), language=snippet.get("lang", "bash"))
+        summary_txt = f.get("attack_summary") or ""
+        if summary_txt:
+            body_parts.append(
+                f"<p><strong>{html.escape(t(lang, 'vm_attack_summary'))}:</strong> "
+                f"{html.escape(str(summary_txt))}</p>"
+            )
 
-            refs = f.get("references") or []
-            if refs:
-                st.markdown(f"**{t(lang, 'vm_refs_label')}:**")
-                for r in refs:
-                    st.markdown(f"- [{r}]({r})")
+        steps = f.get("attack_steps") or []
+        if steps:
+            li = "".join(
+                f"<li>{html.escape(str(s))}</li>" for s in steps
+            )
+            body_parts.append(
+                f"<p><strong>{html.escape(t(lang, 'vm_attack_steps'))}</strong></p><ol>{li}</ol>"
+            )
+
+        codes = f.get("attack_code") or []
+        if codes:
+            body_parts.append(f"<p><strong>{html.escape(t(lang, 'vm_attack_code'))}</strong></p>")
+            for snippet in codes:
+                label = html.escape(str(snippet.get("label", "code")))
+                code_txt = str(snippet.get("code", "") or "")
+                body_parts.append(f"<p style=\"margin:6px 0 2px;font-weight:600;\">{label}</p>")
+                body_parts.append(f"<pre>{html.escape(code_txt)}</pre>")
+
+        refs = f.get("references") or []
+        if refs:
+            links = "".join(
+                f'<li><a href="{html.escape(str(r))}" target="_blank" rel="noopener noreferrer">'
+                f"{html.escape(str(r))}</a></li>"
+                for r in refs
+            )
+            body_parts.append(
+                f"<p><strong>{html.escape(t(lang, 'vm_refs_label'))}</strong></p><ul>{links}</ul>"
+            )
+
+        inner = "".join(body_parts)
+        blocks.append(
+            f'<details class="scan-quick-exploit"><summary>{summary_line}</summary>'
+            f'<div class="scan-quick-body">{inner}</div></details>'
+        )
+
+    st.markdown("\n".join(blocks), unsafe_allow_html=True)
 
 
 def _vm_ai_explain_vuln(v: dict, lang: Lang) -> str:
@@ -2138,11 +2207,11 @@ def main() -> None:
     inject_theme(lang, st.session_state.theme)
 
     if not st.session_state.authenticated:
-        _login_page(lang)
+        _login_page()
         return
 
     _persist_session_to_url()
-    st.markdown(hero_html(lang), unsafe_allow_html=True)
+    st.markdown(hero_html(lang, st.session_state.get("user") or ""), unsafe_allow_html=True)
     _top_nav(lang)
 
     page_fn = PAGES.get(st.session_state.nav, _page_overview)
